@@ -84,24 +84,24 @@ def create_viewer(rmodel, cmodel, vmodel):
 
 
 def dd_dt(rmodel, cmodel, x: np.ndarray):
-    
-    q = x[:rmodel.nq]
-    v = x[rmodel.nq:]
-    
+
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+
     # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
-    
+
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    
+
     # Poses and geometries of the shapes
     shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 =  cmodel.geometryObjects[shape1_id]
+    shape1 = cmodel.geometryObjects[shape1_id]
 
     shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 =  cmodel.geometryObjects[shape2_id]
-    
+    shape2 = cmodel.geometryObjects[shape2_id]
+
     # Getting the geometry of the shape 1
     shape1_geom = shape1.geometry
     # Getting its pose in the world reference
@@ -109,8 +109,7 @@ def dd_dt(rmodel, cmodel, x: np.ndarray):
     # Doing the same for the second shape.
     shape2_geom = shape2.geometry
     shape2_placement = cdata.oMg[shape2_id]
-        
-    
+
     req = hppfcl.DistanceRequest()
     res = hppfcl.DistanceResult()
     dist = hppfcl.distance(
@@ -121,29 +120,26 @@ def dd_dt(rmodel, cmodel, x: np.ndarray):
         req,
         res,
     )
-    
+
     jacobian1 = pin.computeFrameJacobian(
-            rmodel,
-            rdata,
-            q,
-            shape1.parentFrame,
-            pin.LOCAL_WORLD_ALIGNED,
-        )
+        rmodel,
+        rdata,
+        q,
+        shape1.parentFrame,
+        pin.LOCAL_WORLD_ALIGNED,
+    )
 
     jacobian2 = pin.computeFrameJacobian(
-            rmodel,
-            rdata,
-            q,
-            shape2.parentFrame,
-            pin.LOCAL_WORLD_ALIGNED,
-        )
+        rmodel,
+        rdata,
+        q,
+        shape2.parentFrame,
+        pin.LOCAL_WORLD_ALIGNED,
+    )
 
     cp1 = res.getNearestPoint1()
-    placement_cp1 = pin.SE3(np.eye(3), cp1)
-
     cp2 = res.getNearestPoint2()
-    placement_cp2 = pin.SE3(np.eye(3), cp2)
-       
+
     ## Transport the jacobian of frame 1 into the jacobian associated to cp1
     # Vector from frame 1 center to p1
 
@@ -153,7 +149,6 @@ def dd_dt(rmodel, cmodel, x: np.ndarray):
     f1Mp1 = pin.SE3(np.eye(3), f1p1)
     jacobian1 = f1Mp1.actionInverse @ jacobian1
 
-
     ## Transport the jacobian of frame 2 into the jacobian associated to cp2
     # Vector from frame 2 center to p2
     f2p2 = cp2 - rdata.oMf[shape2.parentFrame].translation
@@ -162,22 +157,59 @@ def dd_dt(rmodel, cmodel, x: np.ndarray):
     f2Mp2 = pin.SE3(np.eye(3), f2p2)
     jacobian2 = f2Mp2.actionInverse @ jacobian2
 
-
     CP1_SE3 = pin.SE3.Identity()
     CP1_SE3.translation = cp1
-
 
     CP2_SE3 = pin.SE3.Identity()
     CP2_SE3.translation = cp2
 
     n = (cp2 - cp1).T / dist
-    
+
     d_dot = np.dot((jacobian2[:3] @ v - jacobian1[:3] @ v).T, n)
-    
+
     return d_dot
     # h = ksi * (dist - ds)/(di - ds)
 
+def dist(q):
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
 
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    # Getting the geometry of the shape 1
+    shape1_geom = shape1.geometry
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    # Doing the same for the second shape.
+    shape2_geom = shape2.geometry
+    shape2_placement = cdata.oMg[shape2_id]
+
+    req = hppfcl.DistanceRequest()
+    res = hppfcl.DistanceResult()
+    dist = hppfcl.distance(
+        shape1_geom,
+        shape1_placement,
+        shape2_geom,
+        shape2_placement,
+        req,
+        res,
+    )
+    return dist
+
+h=1e-6
+def finite_diff_time(q, v):
+    
+    return (dist(q+h*v) - dist(q)) / h
+    
 
 if __name__ == "__main__":
     import hppfcl
@@ -208,9 +240,10 @@ if __name__ == "__main__":
     # Generating the meshcat visualize
 
     viz = create_viewer(rmodel, cmodel, vmodel)
-    q = pin.neutral(rmodel)
-
+    q = pin.randomConfiguration(rmodel) 
+    v = pin.randomConfiguration(rmodel)
     viz.display(q)
+    
+    print(dd_dt(rmodel, cmodel, np.concatenate((q, v))))
+    print(finite_diff_time(q, v))
 
-    v = pin.randomConfiguration(rmodel) - pin.randomConfiguration(rmodel)
-    print(dd_dt(rmodel, cmodel, np.concatenate((q,v))))
