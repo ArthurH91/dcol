@@ -112,17 +112,43 @@ class PandaWrapper:
         placement=pin.SE3.Random(),
         dim=[0.2, 0.5, 0.1],
     ):
-
-        print(placement)
         elips = hppfcl.Ellipsoid(dim[0], dim[1], dim[2])
         elips_geom = pin.GeometryObject(
-            name, parentJoint, parentFrame, elips, placement
+            name,
+            parent_joint=parentJoint,
+            parent_frame=parentFrame,
+            collision_geometry=elips,
+            placement=placement,
         )
         elips_geom.meshColor = np.concatenate(
             (np.random.uniform(0, 1, 3), np.ones(1) / 0.8)
         )
 
         cmodel.addGeometryObject(elips_geom)
+        return cmodel
+
+    def add_sphere(
+        self,
+        cmodel,
+        name: str,
+        parentJoint=0,
+        parentFrame=0,
+        placement=pin.SE3.Random(),
+        dim=0.1,
+    ):
+        sphere = hppfcl.Sphere(dim)
+        sphere_geom = pin.GeometryObject(
+            name,
+            parent_joint=parentJoint,
+            parent_frame=parentFrame,
+            collision_geometry=sphere,
+            placement=placement,
+        )
+        sphere_geom.meshColor = np.concatenate(
+            (np.random.uniform(0, 1, 3), np.ones(1) / 0.8)
+        )
+
+        cmodel.addGeometryObject(sphere_geom)
         return cmodel
 
 
