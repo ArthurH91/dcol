@@ -1,29 +1,11 @@
 import numpy as np
 import pinocchio as pin
 
-
-if __name__ == "__main__":
-    import hppfcl
-    from pinocchio import visualize
-    import meshcat
-    import meshcat.geometry as g
-    from wrapper_panda import PandaWrapper
-
-    # OBS CONSTANTS 
-    PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
-    DIM_OBS = [0.1, 0.1, 0.4]
-    
-    # ELLIPS ON THE ROBOT
-    PLACEMENT_ROB= pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
-    DIM_ROB= [0.2, 0.1, 0.2]
-    
-    # Creating the robot
-    robot_wrapper = PandaWrapper()
-    rmodel, cmodel, vmodel = robot_wrapper()
+def add_ellips(cmodel, placement_obs = pin.SE3.Identity(), dim_obs = [1,1,1], placement_rob = pin.SE3.Identity(), dim_rob = [1,1,1]):
 
     # Creating the ellipsoids
     cmodel = robot_wrapper.add_ellipsoid(
-        cmodel, "obstacle", placement=PLACEMENT_OBS, dim=DIM_OBS
+        cmodel, "obstacle", placement=placement_obs, dim=dim_obs
     )
     assert cmodel.existGeometryName("panda2_link7_sc_5")
     cmodel = robot_wrapper.add_ellipsoid(
@@ -35,10 +17,14 @@ if __name__ == "__main__":
         parentJoint=cmodel.geometryObjects[
             cmodel.getGeometryId("panda2_link7_sc_5")
         ].parentJoint,
-        placement=PLACEMENT_ROB,
-        dim=DIM_ROB,
+        placement=placement_rob,
+        dim=dim_rob,
     )
-    # Creating the data models
+    return cmodel
+
+def add_closest_points(cmodel, rmodel):
+    
+        # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
 
@@ -74,13 +60,29 @@ if __name__ == "__main__":
     cp2_geom.meshColor = np.array([0, 0, 0, 1.])
     cmodel.addGeometryObject(cp1_geom)
     cmodel.addGeometryObject(cp2_geom)
+    
+    return cmodel
+    
+if __name__ == "__main__":
+    import hppfcl
+    from pinocchio import visualize
+    import meshcat
+    from wrapper_panda import PandaWrapper
 
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
+    # OBS CONSTANTS 
+    PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
+    DIM_OBS = [0.1, 0.1, 0.4]
+    
+    # ELLIPS ON THE ROBOT
+    PLACEMENT_ROB= pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
+    DIM_ROB= [0.2, 0.1, 0.2]
+    
+    # Creating the robot
+    robot_wrapper = PandaWrapper()
+    rmodel, cmodel, vmodel = robot_wrapper()
 
-    # Updating the geometry placements
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, pin.neutral(rmodel))
-
+    cmodel = add_ellips(cmodel, placement_obs=PLACEMENT_OBS, dim_obs=DIM_OBS, placement_rob=PLACEMENT_ROB, dim_rob=DIM_ROB)
+    cmodel = add_closest_points(cmodel, rmodel)
     # Generating the meshcat visualize
     viz = visualize.MeshcatVisualizer(
         model=rmodel,
