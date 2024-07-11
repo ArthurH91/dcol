@@ -1,5 +1,6 @@
 import numpy as np
 import pinocchio as pin
+import hppfcl
 
 
 def add_ellips(
@@ -30,18 +31,18 @@ def add_ellips(
     return cmodel
 
 
-def add_closest_points(cmodel, rmodel):
+def add_closest_points(cmodel, rmodel, q):
 
     # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
 
     # Updating the geometry placements
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, pin.neutral(rmodel))
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
 
     req = hppfcl.DistanceRequest()
     res = hppfcl.DistanceResult()
-    dist = hppfcl.distance(
+    _ = hppfcl.distance(
         cmodel.geometryObjects[cmodel.getGeometryId("obstacle")].geometry,
         cdata.oMg[cmodel.getGeometryId("obstacle")],
         cmodel.geometryObjects[cmodel.getGeometryId("ellips_rob")].geometry,
@@ -50,37 +51,8 @@ def add_closest_points(cmodel, rmodel):
         res,
     )
     cp1 = res.getNearestPoint1()
-    placement_cp1 = pin.SE3(np.eye(3), cp1)
-
     cp2 = res.getNearestPoint2()
-    placement_cp2 = pin.SE3(np.eye(3), cp2)
-    print(f"cp1: {cp1}")
-    print(f"cp2: {cp2}")
-    print(f"dist : {dist}")
-    print(f"np.linalg.norm(cp2-cp1): {np.linalg.norm(cp2-cp1)}")
-    print("-----------------")
-    geom_cp = hppfcl.Sphere(0.05)
-    cp1_geom = pin.GeometryObject("cp1", 0, 0, placement_cp1, geom_cp)
-    cp2_geom = pin.GeometryObject("cp2", 0, 0, placement_cp2, geom_cp)
-    cp1_geom.meshColor = np.array([0, 0, 0, 1.0])
-    cp2_geom.meshColor = np.array([0, 0, 0, 1.0])
-    cmodel.addGeometryObject(cp1_geom)
-    cmodel.addGeometryObject(cp2_geom)
-
-    return cmodel
-
-
-def create_viewer(rmodel, cmodel, vmodel):
-    viz = visualize.MeshcatVisualizer(
-        model=rmodel,
-        collision_model=cmodel,
-        visual_model=vmodel,
-    )
-    viz.initViewer(viewer=meshcat.Visualizer(zmq_url="tcp://127.0.0.1:6000"))
-    viz.loadViewerModel("pinocchio")
-
-    viz.displayCollisions(True)
-    return viz
+    return cp1, cp2
 
 
 def dd_dt(rmodel, cmodel, x: np.ndarray):
@@ -170,6 +142,7 @@ def dd_dt(rmodel, cmodel, x: np.ndarray):
     return d_dot
     # h = ksi * (dist - ds)/(di - ds)
 
+
 def dist(q):
     # Creating the data models
     rdata = rmodel.createData()
@@ -205,17 +178,24 @@ def dist(q):
     )
     return dist
 
-h=1e-6
-def finite_diff_time(q, v):
-    
-    return (dist(q+h*v) - dist(q)) / h
-    
+
+def finite_diff_time(q, v, h=1e-6):
+
+    return (dist(q + h * v) - dist(q)) / h
+
+def numdiff(f, q, h=1e-6):
+    j_diff = np.zeros(rmodel.nq)
+    fx = f(q)
+    for i in range(rmodel.nq):
+        e = np.zeros(rmodel.nq)
+        e[i] = 1e-6
+        j_diff[i] = (f(q + e) - fx) / e[i]
+    return j_diff
+
 
 if __name__ == "__main__":
-    import hppfcl
-    from pinocchio import visualize
-    import meshcat
     from wrapper_panda import PandaWrapper
+    from viewer import create_viewer, display_closest_points
 
     # OBS CONSTANTS
     PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
@@ -236,14 +216,13 @@ if __name__ == "__main__":
         placement_rob=PLACEMENT_ROB,
         dim_rob=DIM_ROB,
     )
-    cmodel = add_closest_points(cmodel, rmodel)
-    # Generating the meshcat visualize
-
     viz = create_viewer(rmodel, cmodel, vmodel)
-    q = pin.randomConfiguration(rmodel) 
+    q = pin.randomConfiguration(rmodel)
     v = pin.randomConfiguration(rmodel)
+    cp1, cp2 = add_closest_points(cmodel, rmodel, q)
+    display_closest_points(viz, cp1, cp2)
+    # Generating the meshcat visualize
     viz.display(q)
-    
+
     print(dd_dt(rmodel, cmodel, np.concatenate((q, v))))
     print(finite_diff_time(q, v))
-
