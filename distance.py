@@ -183,12 +183,13 @@ def finite_diff_time(q, v, h=1e-6):
 
     return (dist(q + h * v) - dist(q)) / h
 
+
 def numdiff(f, q, h=1e-6):
     j_diff = np.zeros(rmodel.nq)
     fx = f(q)
     for i in range(rmodel.nq):
         e = np.zeros(rmodel.nq)
-        e[i] = 1e-6
+        e[i] = h
         j_diff[i] = (f(q + e) - fx) / e[i]
     return j_diff
 
