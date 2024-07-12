@@ -38,9 +38,9 @@ class EllipsoidOptimization:
         self.totalcost = casadi.sqrt(casadi.sumsqr(self.x1 - self.x2))
 
         # Define the constraints
-        self.con1 = (self.x1 - x0_1).T @ self.A_rot @ (self.x1 - x0_1) <= 1
+        self.con1 = (self.x1 - x0_1).T @ self.A_rot @ (self.x1 - x0_1) /2== 1/2
         self.opti.subject_to(self.con1)
-        self.con2 = (self.x2 - x0_2).T @ self.B_rot @ (self.x2 - x0_2) <= 1
+        self.con2 = (self.x2 - x0_2).T @ self.B_rot @ (self.x2 - x0_2)/2 == 1/2
         self.opti.subject_to(self.con2)
 
     def solve_problem(self, warm_start_primal=None):
@@ -124,10 +124,10 @@ class TestEllipsoidDistance(unittest.TestCase):
         self, x01: np.ndarray, A: np.ndarray, x02: np.ndarray, B: np.ndarray
     ):
 
-        lambda1 = - 0.5 * self.distance / (
+        lambda1 = - self.distance / (
             np.dot(np.dot((self.x1 - self.x2).T, A), (self.x1 - x01))
         )
-        lambda2 = 0.5 * self.distance / (
+        lambda2 =  self.distance / (
             np.dot(np.dot((self.x1 - self.x2).T, B), (self.x2 - x02))
         )
 
