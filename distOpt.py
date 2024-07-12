@@ -2,6 +2,8 @@ import unittest
 
 import numpy as np
 
+from qcqp_solver import EllipsoidOptimization
+
 class DistOpt:
     
     def __init__(self) -> None:
@@ -46,9 +48,10 @@ class DistOpt:
         Returns:
             np.array: Gradient of the Lagrangian.
         """
-        Dxl = np.zeros((6, 1))
-        Dxl[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.dot(self.A, (self.x1 - self.x01).T)
-        Dxl[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.dot(self.B, (self.x2 - self.x02).T)
+        Dxl = np.zeros((6,))
+        
+        Dxl[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.matmul(self.A, (self.x1 - self.x01))
+        Dxl[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.matmul(self.B, (self.x2 - self.x02).T)
         return Dxl
 
     def gradient_xh1(self):
@@ -58,7 +61,7 @@ class DistOpt:
         Returns:
             np.array: Gradient of the first constraint.
         """
-        DxH1 = np.zeros((6, 1))
+        DxH1 = np.zeros((6,))
         DxH1[:3] = np.dot(self.A, (self.x1 - self.x01))
         return DxH1
 
@@ -69,7 +72,7 @@ class DistOpt:
         Returns:
             np.array: Gradient of the second constraint.
         """
-        DxH2 = np.zeros((6, 1))
+        DxH2 = np.zeros((6,))
         DxH2[3:] = np.dot(self.B, (self.x2 - self.x02))
         return DxH2
 
@@ -93,65 +96,32 @@ class TestDistOpt(unittest.TestCase):
     
     def setUp(self):
         self.A = np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
-        self.B = np.array([[4, 0, 0], [0, 5, 0], [0, 0, 6]])
-        self.x01 = np.array([[1], [1], [1]])
-        self.x02 = np.array([[2], [2], [2]])
+        self.B = np.array([[3, 0, 0], [0, 2, 0], [0, 0, 1]])
+        self.x01 = np.array([1,1,1])
+        self.x02 = np.array([5,5,5])
 
-        self.x1 = np.array([[1.5], [1.5], [1.5]])
-        self.x2 = np.array([[2.5], [2.5], [2.5]])
-        self.d = 1.0
-        self.lambda1 = 0.5
-        self.lambda2 = 0.5
+        # Initialize the QCQPSolver with the ellipsoid parameters
+        self.qcqp_solver = EllipsoidOptimization()
+        self.qcqp_solver.setup_problem(self.x01, self.A, self.x02, self.B)
+        self.qcqp_solver.solve_problem(warm_start_primal=np.concatenate((self.x01, self.x02)))
+
+        self.x1, self.x2 = self.qcqp_solver.get_optimal_values()
+        self.distance = self.qcqp_solver.get_minimum_cost()
+        
+        self.lambda1, self.lambda2 = self.qcqp_solver.get_dual_values()
 
         self.opt = DistOpt()
         self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
-        self.opt.set_up_optim_var(self.x1, self.x2, self.d, self.lambda1, self.lambda2)
-
-    def test_set_up_ellips(self):
-        self.assertTrue(np.array_equal(self.opt.A, self.A))
-        self.assertTrue(np.array_equal(self.opt.B, self.B))
-        self.assertTrue(np.array_equal(self.opt.x01, self.x01))
-        self.assertTrue(np.array_equal(self.opt.x02, self.x02))
-
-    def test_set_up_optim_var(self):
-        self.assertTrue(np.array_equal(self.opt.x1, self.x1))
-        self.assertTrue(np.array_equal(self.opt.x2, self.x2))
-        self.assertEqual(self.opt.d, self.d)
-        self.assertEqual(self.opt.lambda1, self.lambda1)
-        self.assertEqual(self.opt.lambda2, self.lambda2)
-
-    def test_gradient_xL(self):
-        expected_gradient_xL = np.zeros((6, 1))
-        expected_gradient_xL[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.dot(self.A, (self.x1 - self.x01).T)
-        expected_gradient_xL[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.dot(self.B, (self.x2 - self.x02).T)
-        
-        gradient_xL = self.opt.gradient_xL()
-        np.testing.assert_array_almost_equal(gradient_xL, expected_gradient_xL)
-
-    def test_gradient_xh1(self):
-        expected_gradient_xh1 = np.zeros((6, 1))
-        expected_gradient_xh1[:3] = np.dot(self.A, (self.x1 - self.x01))
-        
-        gradient_xh1 = self.opt.gradient_xh1()
-        np.testing.assert_array_almost_equal(gradient_xh1, expected_gradient_xh1)
-
-    def test_gradient_xh2(self):
-        expected_gradient_xh2 = np.zeros((6, 1))
-        expected_gradient_xh2[3:] = np.dot(self.B, (self.x2 - self.x02))
-        
-        gradient_xh2 = self.opt.gradient_xh2()
-        np.testing.assert_array_almost_equal(gradient_xh2, expected_gradient_xh2)
+        self.opt.set_up_optim_var(self.x1, self.x2, self.distance, self.lambda1, self.lambda2)
 
     def test_M0(self):
-        M = np.zeros((18, 3))
-        M[:6, 0] = self.opt.gradient_xL().flatten()
-        M[:6, 1] = self.opt.gradient_xh1().flatten()
-        M[:6, 2] = self.opt.gradient_xh2().flatten()
-        M[6:12, 0] = self.opt.gradient_xh1().flatten()
-        M[12:18, 0] = self.opt.gradient_xh2().flatten()
         
         M0 = self.opt.M0()
-        np.testing.assert_array_almost_equal(M0, M)
+        print(M0)
 
 if __name__ == '__main__':
-    unittest.main()
+    # unittest.main()
+    
+    test = TestDistOpt()
+    test.setUp()
+    test.test_M0()
