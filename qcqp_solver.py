@@ -45,6 +45,8 @@ class EllipsoidOptimization:
 
     def solve_problem(self, warm_start_primal=None):
 
+        self.opti.solver('ipopt')
+        
         self.opti.minimize(self.totalcost)
         self.opti.solver("ipopt")
 
@@ -93,9 +95,12 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.A = radii_to_matrix(self.radii_1)
         self.B = radii_to_matrix(self.radii_2)
 
+        # Add some rotation
+        self.A_rot = pin.utils.rotate("x", np.pi/2)
+        self.B_rot = pin.utils.rotate("y", np.pi/2)
         # Initialize the QCQPSolver with the ellipsoid parameters
         self.qcqp_solver = EllipsoidOptimization()
-        self.qcqp_solver.setup_problem(self.x0_1, self.A, self.x0_2, self.B)
+        self.qcqp_solver.setup_problem(self.x0_1, self.A, self.x0_2, self.B, self.A_rot, self.B_rot)
         self.qcqp_solver.solve_problem(warm_start_primal=np.concatenate((self.x0_1, self.x0_2)))
 
         self.x1, self.x2 = self.qcqp_solver.get_optimal_values()
@@ -107,11 +112,13 @@ class TestEllipsoidDistance(unittest.TestCase):
         )
         self.ellipsoid_1_pose = pin.SE3.Identity()
         self.ellipsoid_1_pose.translation = np.array(self.x0_1)
+        self.ellipsoid_1_pose.rotation = self.A_rot
         self.ellipsoid_2 = hppfcl.Ellipsoid(
             self.radii_2[0], self.radii_2[1], self.radii_2[2]
         )
         self.ellipsoid_2_pose = pin.SE3.Identity()
         self.ellipsoid_2_pose.translation = np.array(self.x0_2)
+        self.ellipsoid_2_pose.rotation = self.B_rot
 
     def lagrangian_multipliers(
         self, x01: np.ndarray, A: np.ndarray, x02: np.ndarray, B: np.ndarray
@@ -140,7 +147,7 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.lagrange_multipliers_casadi = self.qcqp_solver.get_dual_values()
 
         lambda1, lambda2 = self.lagrangian_multipliers(
-            self.x0_1, self.A, self.x0_2, self.B
+            self.x0_1, self.qcqp_solver.A_rot, self.x0_2, self.qcqp_solver.B_rot
         )
         print(
             f"lambda1: {lambda1} ///// self.lagrange_multipliers_casadi[0]: {self.lagrange_multipliers_casadi[0]}"
@@ -183,6 +190,8 @@ class TestEllipsoidDistance(unittest.TestCase):
         print(
             f"DISTANCE HPPFCL : {hppfcl_distance} ///// DISTANCE CASADI: {self.distance} //// DISTANCE NORMEE : {np.linalg.norm(self.x1 - self.x2)}"
         )
+
+        # Compare the results from HPPFCL and QCQP
         self.assertAlmostEqual(
             hppfcl_distance, self.distance, places=4, msg="Distances are not equal"
         )
