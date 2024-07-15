@@ -4,12 +4,13 @@ import numpy as np
 
 from qcqp_solver import EllipsoidOptimization
 
+
 class DistOpt:
-    
+
     def __init__(self) -> None:
         pass
 
-    def set_up_ellips(self, A, B, x01, x02):
+    def set_up_ellips(self, A, B, x01, x02, J01=None, J02=None):
         """
         Sets up the ellipsoids with their curvature matrices and centers.
 
@@ -18,11 +19,16 @@ class DistOpt:
             B (np.array): (3, 3) array describing the curvature of the second ellipsoid.
             x01 (np.array): (3, 1) array, center of the first ellipsoid.
             x02 (np.array): (3, 1) array, center of the second ellipsoid.
+            x01 (np.array): (3, nq) array, jacobian of the first ellipsoid with regards to the configuration of the robot.
+            x02 (np.array): (3, nq) array, jacobian of the second ellipsoid with regards to the configuration of the robot.
         """
         self.A = A
         self.B = B
         self.x01 = x01
         self.x02 = x02
+
+        self.J01 = J01
+        self.J02 = J02
 
     def set_up_optim_var(self, x1, x2, d, lambda1, lambda2):
         """
@@ -49,14 +55,35 @@ class DistOpt:
             np.array: Gradient of the Lagrangian.
         """
         Dxl = np.zeros((6,))
-        
-        Dxl[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.matmul(self.A, (self.x1 - self.x01))
-        Dxl[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.matmul(self.B, (self.x2 - self.x02).T)
+
+        Dxl[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.matmul(
+            self.A, (self.x1 - self.x01)
+        )
+        Dxl[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.matmul(
+            self.B, (self.x2 - self.x02).T
+        )
         return Dxl
+
+    def hessian_xxL(self):
+        """
+        Computes the hessian of the Lagrangian with respect to x = (x1, x2).T
+
+        Returns:
+            np.array: Hessian of the Lagrangian w.rt. x = (x1, x2).T.
+        """
+
+        DDxl = np.zeros((6, 6))
+
+        DDxl[:3, :3] = 1 / self.d * np.eye(3, 3) + self.lambda1 * self.A
+        DDxl[:3, 3:] = -1 / self.d * np.eye(3, 3)
+        DDxl[-3:, :3] = -1 / self.d * np.eye(3, 3)
+        DDxl[3:, 3:] = 1 / self.d * np.eye(3, 3) + self.lambda2 * self.B
+
+        return DDxl
 
     def gradient_xh1(self):
         """
-        Computes the gradient of the first constraint.
+        Computes the gradient of the first constraint with regards to position of the closest points.
 
         Returns:
             np.array: Gradient of the first constraint.
@@ -67,7 +94,7 @@ class DistOpt:
 
     def gradient_xh2(self):
         """
-        Computes the gradient of the second constraint.
+        Computes the gradient of the second constraint with regards to position of the closest points.
 
         Returns:
             np.array: Gradient of the second constraint.
@@ -76,52 +103,99 @@ class DistOpt:
         DxH2[3:] = np.dot(self.B, (self.x2 - self.x02))
         return DxH2
 
-    def M0(self):
+    def gradient_qh1(self):
+        """
+        Computes the gradient of the first constraint with regards to configuration of the robot.
+
+        Returns:
+            np.array: Gradient of the first constraint.
+        """
+
+        DqH1 = np.dot(self.J01.T, self.A) * (self.x1 - self.x01)
+
+        return DqH1
+
+    def gradient_qh2(self):
+        """
+        Computes the gradient of the second constraint with regards to configuration of the robot.
+
+        Returns:
+            np.array: Gradient of the second constraint.
+        """
+
+        DqH2 = np.dot(self.J02.T, self.B) * (self.x2 - self.x02)
+
+        return DqH2
+
+    def hessian_qx_L(self):
+        """
+        Computes the hessian of the Lagrangian with respect to x = (x1, x2).T and to q.
+
+        Returns:
+            np.array: Hessian of the Lagrangian w.rt. x = (x1, x2).T and to q.
+        """
+
+        DDqxl = np.zeros((6, 7))
+
+        DDqxl[:3, :] = self.lambda1 * np.dot(self.A, self.J01)
+        DDqxl[3:, :] = self.lambda2 * np.dot(self.B, self.J02)
+
+        return DDqxl
+
+    def M(self):
         """
         Constructs the M0 matrix used in the optimization process.
 
         Returns:
             np.array: M0 matrix.
         """
-        M = np.zeros((18, 3))
-        M[:6, 0] = self.gradient_xL()
-        M[:6, 1] = self.gradient_xh1()
-        M[:6, 2] = self.gradient_xh2()
-        M[6:12, 0] = self.gradient_xh1()
-        M[12:18, 0] = self.gradient_xh2()
+        M = np.zeros((8, 8))
+        M[:6, :6] = self.hessian_xxL()
+        M[:6, 6] = self.gradient_xh1()
+        M[:6, 7] = self.gradient_xh2()
+        M[6, :6] = self.gradient_xh1().T
+        M[7, :6] = self.gradient_xh2().T
         return M
+
+    def N(self):
+        N = 
 
 
 class TestDistOpt(unittest.TestCase):
-    
+
     def setUp(self):
         self.A = np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
         self.B = np.array([[3, 0, 0], [0, 2, 0], [0, 0, 1]])
-        self.x01 = np.array([1,1,1])
-        self.x02 = np.array([5,5,5])
+        self.x01 = np.array([1, 1, 1])
+        self.x02 = np.array([5, 5, 5])
 
         # Initialize the QCQPSolver with the ellipsoid parameters
         self.qcqp_solver = EllipsoidOptimization()
         self.qcqp_solver.setup_problem(self.x01, self.A, self.x02, self.B)
-        self.qcqp_solver.solve_problem(warm_start_primal=np.concatenate((self.x01, self.x02)))
+        self.qcqp_solver.solve_problem(
+            warm_start_primal=np.concatenate((self.x01, self.x02))
+        )
 
         self.x1, self.x2 = self.qcqp_solver.get_optimal_values()
         self.distance = self.qcqp_solver.get_minimum_cost()
-        
+
         self.lambda1, self.lambda2 = self.qcqp_solver.get_dual_values()
 
         self.opt = DistOpt()
         self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
-        self.opt.set_up_optim_var(self.x1, self.x2, self.distance, self.lambda1, self.lambda2)
+        self.opt.set_up_optim_var(
+            self.x1, self.x2, self.distance, self.lambda1, self.lambda2
+        )
 
-    def test_M0(self):
-        
-        M0 = self.opt.M0()
-        print(M0)
+    def test_M(self):
 
-if __name__ == '__main__':
+        M = self.opt.M()
+        print(M.shape)
+
+
+if __name__ == "__main__":
     # unittest.main()
-    
+
     test = TestDistOpt()
     test.setUp()
-    test.test_M0()
+    test.test_M()
