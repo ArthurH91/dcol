@@ -2,6 +2,9 @@ import numpy as np
 import pinocchio as pin
 import hppfcl
 
+from qcqp_solver import radii_to_matrix, EllipsoidOptimization
+from distOpt import DistOpt
+
 
 def add_ellips(
     cmodel,
@@ -129,12 +132,6 @@ def dd_dt(rmodel, cmodel, x: np.ndarray):
     f2Mp2 = pin.SE3(np.eye(3), f2p2)
     jacobian2 = f2Mp2.actionInverse @ jacobian2
 
-    CP1_SE3 = pin.SE3.Identity()
-    CP1_SE3.translation = cp1
-
-    CP2_SE3 = pin.SE3.Identity()
-    CP2_SE3.translation = cp2
-
     n = (cp2 - cp1).T / dist
 
     d_dot = np.dot((jacobian2[:3] @ v - jacobian1[:3] @ v).T, n)
@@ -185,13 +182,150 @@ def finite_diff_time(q, v, h=1e-6):
 
 
 def numdiff(f, q, h=1e-6):
-    j_diff = np.zeros(rmodel.nq)
+    j_diff = np.zeros((6,rmodel.nq))
     fx = f(q)
     for i in range(rmodel.nq):
         e = np.zeros(rmodel.nq)
         e[i] = h
-        j_diff[i] = (f(q + e) - fx) / e[i]
+        j_diff[:,i] = ((f(q + e) - fx) / e[i]).reshape((6,))
     return j_diff
+
+def get_closest_points(q):
+    
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    # Getting the geometry of the shape 1
+    shape1_geom = shape1.geometry
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    # Doing the same for the second shape.
+    shape2_geom = shape2.geometry
+    shape2_placement = cdata.oMg[shape2_id]
+
+    req = hppfcl.DistanceRequest()
+    res = hppfcl.DistanceResult()
+    dist = hppfcl.distance(
+        shape1_geom,
+        shape1_placement,
+        shape2_geom,
+        shape2_placement,
+        req,
+        res,
+    )
+
+    cp1 = res.getNearestPoint1()
+    cp2 = res.getNearestPoint2()
+    
+    cp = np.zeros((6,1))
+    
+    cp[:3,:] = cp1.reshape((3,1))
+    cp[3:,:] = cp2.reshape((3,1))
+    
+    return cp
+
+def dx_dq(q):
+
+    not_center = False
+
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    # Getting the geometry of the shape 1
+    shape1_geom = shape1.geometry
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    # Doing the same for the second shape.
+    shape2_geom = shape2.geometry
+    shape2_placement = cdata.oMg[shape2_id]
+
+    req = hppfcl.DistanceRequest()
+    res = hppfcl.DistanceResult()
+    dist = hppfcl.distance(
+        shape1_geom,
+        shape1_placement,
+        shape2_geom,
+        shape2_placement,
+        req,
+        res,
+    )
+
+    cp1 = res.getNearestPoint1()
+    cp2 = res.getNearestPoint2()
+
+    jacobian1 = pin.computeFrameJacobian(
+        rmodel,
+        rdata,
+        q,
+        shape1.parentFrame,
+        pin.LOCAL_WORLD_ALIGNED,
+    )
+
+    jacobian2 = pin.computeFrameJacobian(
+        rmodel,
+        rdata,
+        q,
+        shape2.parentFrame,
+        pin.LOCAL_WORLD_ALIGNED,
+    )
+
+    if not_center:
+        ## Transport the jacobian of frame 1 into the jacobian associated to cp1
+        # Vector from frame 1 center to p1
+
+        f1p1 = cp1 - rdata.oMf[shape1.parentFrame].translation
+        # The following 2 lines are the easiest way to understand the transformation
+        # although not the most efficient way to compute it.
+        f1Mp1 = pin.SE3(np.eye(3), f1p1)
+        jacobian1 = f1Mp1.actionInverse @ jacobian1
+
+        ## Transport the jacobian of frame 2 into the jacobian associated to cp2
+        # Vector from frame 2 center to p2
+        f2p2 = cp2 - rdata.oMf[shape2.parentFrame].translation
+        # The following 2 lines are the easiest way to understand the transformation
+        # although not the most efficient way to compute it.
+        f2Mp2 = pin.SE3(np.eye(3), f2p2)
+        jacobian2 = f2Mp2.actionInverse @ jacobian2
+
+    A = radii_to_matrix(DIM_OBS)
+    B = radii_to_matrix(DIM_ROB)
+    x01 = PLACEMENT_OBS.translation
+    x02 = PLACEMENT_ROB.translation
+    qcqp_solver = EllipsoidOptimization(3)
+    qcqp_solver.setup_problem(
+        x01, A, x02, B, PLACEMENT_OBS.rotation, PLACEMENT_ROB.rotation
+    )
+    qcqp_solver.solve_problem(warm_start_primal=np.concatenate((x01, x02)))
+
+    x1, x2 = qcqp_solver.get_optimal_values()
+    distance = qcqp_solver.get_minimum_cost()
+    lambda1, lambda2 = qcqp_solver.get_dual_values()
+
+    distopt = DistOpt()
+    dydq = distopt.get_dY_dq(x1, x2, distance, lambda1, lambda2, A, B ,x01, x02, jacobian1[:3], jacobian2[:3])
+    return dydq
 
 
 if __name__ == "__main__":
@@ -227,3 +361,15 @@ if __name__ == "__main__":
 
     print(dd_dt(rmodel, cmodel, np.concatenate((q, v))))
     print(finite_diff_time(q, v))
+
+    dx1,dx2 = dx_dq(q)
+    
+    dx = numdiff(get_closest_points, q)
+    
+    numdx1 = dx[:3,:]
+    numdx2 = dx[3:,:]
+    
+    np.testing.assert_almost_equal(dx1, numdx1, 1e-9)
+    np.testing.assert_almost_equal(dx2, numdx2, 1e-9)
+    
+    print(np.linalg.norm(dx1 - numdx1))
