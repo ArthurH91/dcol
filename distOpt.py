@@ -10,7 +10,7 @@ class DistOpt:
     def __init__(self) -> None:
         pass
 
-    def set_up_ellips(self, A, B, x01, x02, J01=None, J02=None):
+    def set_up_ellips(self, A: np.ndarray, B: np.ndarray, x01: np.ndarray, x02: np.ndarray, J01=None, J02=None):
         """
         Sets up the ellipsoids with their curvature matrices and centers.
 
@@ -30,7 +30,7 @@ class DistOpt:
         self.J01 = J01
         self.J02 = J02
 
-    def set_up_optim_var(self, x1, x2, d, lambda1, lambda2):
+    def set_up_optim_var(self, x1: np.ndarray, x2: np.ndarray, d: float, lambda1: float, lambda2: float):
         """
         Sets up the optimization variables.
 
@@ -47,7 +47,7 @@ class DistOpt:
         self.lambda1 = lambda1
         self.lambda2 = lambda2
 
-    def gradient_xL(self):
+    def gradient_xL(self) -> np.ndarray:
         """
         Computes the gradient of the Lagrangian with respect to x = (x1, x2).T
 
@@ -64,7 +64,7 @@ class DistOpt:
         )
         return Dxl
 
-    def hessian_xxL(self):
+    def hessian_xxL(self) -> np.ndarray:
         """
         Computes the hessian of the Lagrangian with respect to x = (x1, x2).T
 
@@ -81,7 +81,7 @@ class DistOpt:
 
         return DDxl
 
-    def gradient_xh1(self):
+    def gradient_xh1(self)-> np.ndarray:
         """
         Computes the gradient of the first constraint with regards to position of the closest points.
 
@@ -92,7 +92,7 @@ class DistOpt:
         DxH1[:3] = np.dot(self.A, (self.x1 - self.x01))
         return DxH1
 
-    def gradient_xh2(self):
+    def gradient_xh2(self)-> np.ndarray:
         """
         Computes the gradient of the second constraint with regards to position of the closest points.
 
@@ -103,7 +103,7 @@ class DistOpt:
         DxH2[3:] = np.dot(self.B, (self.x2 - self.x02))
         return DxH2
 
-    def gradient_qh1(self):
+    def gradient_qh1(self)-> np.ndarray:
         """
         Computes the gradient of the first constraint with regards to configuration of the robot.
 
@@ -111,11 +111,11 @@ class DistOpt:
             np.array: Gradient of the first constraint.
         """
 
-        DqH1 = np.dot(self.J01.T, self.A) * (self.x1 - self.x01)
+        DqH1 = np.dot(np.dot(self.J01.T, self.A), (self.x1 - self.x01))
 
         return DqH1
 
-    def gradient_qh2(self):
+    def gradient_qh2(self)-> np.ndarray:
         """
         Computes the gradient of the second constraint with regards to configuration of the robot.
 
@@ -123,11 +123,11 @@ class DistOpt:
             np.array: Gradient of the second constraint.
         """
 
-        DqH2 = np.dot(self.J02.T, self.B) * (self.x2 - self.x02)
+        DqH2 = np.dot(np.dot(self.J02.T, self.B), (self.x2 - self.x02))
 
         return DqH2
 
-    def hessian_qx_L(self):
+    def hessian_qx_L(self)-> np.ndarray:
         """
         Computes the hessian of the Lagrangian with respect to x = (x1, x2).T and to q.
 
@@ -142,7 +142,7 @@ class DistOpt:
 
         return DDqxl
 
-    def M(self):
+    def M(self)-> np.ndarray:
         """
         Constructs the M0 matrix used in the optimization process.
 
@@ -157,8 +157,34 @@ class DistOpt:
         M[7, :6] = self.gradient_xh2().T
         return M
 
-    def N(self):
-        N = 
+    def N(self)-> np.ndarray:
+        N = np.zeros((8, 7))
+
+        N[:6, :] = self.hessian_qx_L()
+        N[6, :] = self.gradient_qh1()
+        N[7, :] = self.gradient_qh2()
+
+        return N
+
+    def invMN(self)-> np.ndarray:
+
+        return np.dot(np.linalg.inv(self.M()), self.N())
+
+    def get_dX_dq(
+        self,
+        x1: np.ndarray,
+        x2: np.ndarray,
+        d: float,
+        lambda1: float,
+        lambda2: float,
+        A: np.ndarray,
+        B: np.ndarray,
+        x01: np.ndarray,
+        x02: np.ndarray,
+        J01: np.ndarray,
+        J02: np.ndarray,
+    )-> np.ndarray:
+        pass
 
 
 class TestDistOpt(unittest.TestCase):
@@ -181,8 +207,11 @@ class TestDistOpt(unittest.TestCase):
 
         self.lambda1, self.lambda2 = self.qcqp_solver.get_dual_values()
 
+        self.J1 = np.random.rand(3, 7)
+        self.J2 = np.random.rand(3, 7)
+
         self.opt = DistOpt()
-        self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
+        self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02, self.J1, self.J2)
         self.opt.set_up_optim_var(
             self.x1, self.x2, self.distance, self.lambda1, self.lambda2
         )
@@ -192,6 +221,10 @@ class TestDistOpt(unittest.TestCase):
         M = self.opt.M()
         print(M.shape)
 
+    def test_N(self):
+        N = self.opt.N()
+        print(N.shape)
+
 
 if __name__ == "__main__":
     # unittest.main()
@@ -199,3 +232,4 @@ if __name__ == "__main__":
     test = TestDistOpt()
     test.setUp()
     test.test_M()
+    test.test_N()
