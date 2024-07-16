@@ -7,7 +7,14 @@ from qcqp_solver import EllipsoidOptimization
 class DistOpt:
 
     def __init__(self) -> None:
-        pass
+        
+        self.Dxl = np.zeros((6,))
+        self.DDxl = np.zeros((6, 6))
+        self.DxH1 = np.zeros((6,))
+        self.DxH2 = np.zeros((6,))
+        self.DDqxl = np.zeros((6, 7))
+        self.M_matrix = np.zeros((8, 8))
+        self.N_matrix = np.zeros((8, 7))
 
     def set_up_ellips(
         self,
@@ -84,15 +91,14 @@ class DistOpt:
         Returns:
             np.array: Gradient of the Lagrangian.
         """
-        Dxl = np.zeros((6,))
-
-        Dxl[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.matmul(
+        
+        self.Dxl[:3] = (1 / self.d) * (self.x1 - self.x2) + self.lambda1 * np.matmul(
             self.A, (self.x1 - self.x01)
         )
-        Dxl[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.matmul(
+        self.Dxl[3:] = -(1 / self.d) * (self.x1 - self.x2) + self.lambda2 * np.matmul(
             self.B, (self.x2 - self.x02).T
         )
-        return Dxl
+        return self.Dxl
 
     def hessian_xxL(self) -> np.ndarray:
         """
@@ -101,14 +107,12 @@ class DistOpt:
         Returns:
             np.array: Hessian of the Lagrangian w.rt. x = (x1, x2).T.
         """
-        DDxl = np.zeros((6, 6))
+        self.DDxl[:3, :3] = 1 / self.d * np.eye(3, 3) + self.lambda1 * self.A
+        self.DDxl[:3, 3:] = -1 / self.d * np.eye(3, 3)
+        self.DDxl[-3:, :3] = -1 / self.d * np.eye(3, 3)
+        self.DDxl[3:, 3:] = 1 / self.d * np.eye(3, 3) + self.lambda2 * self.B
 
-        DDxl[:3, :3] = 1 / self.d * np.eye(3, 3) + self.lambda1 * self.A
-        DDxl[:3, 3:] = -1 / self.d * np.eye(3, 3)
-        DDxl[-3:, :3] = -1 / self.d * np.eye(3, 3)
-        DDxl[3:, 3:] = 1 / self.d * np.eye(3, 3) + self.lambda2 * self.B
-
-        return DDxl
+        return self.DDxl
 
     def gradient_xh1(self) -> np.ndarray:
         """
@@ -117,9 +121,9 @@ class DistOpt:
         Returns:
             np.array: Gradient of the first constraint.
         """
-        DxH1 = np.zeros((6,))
-        DxH1[:3] = np.dot(self.A, (self.x1 - self.x01))
-        return DxH1
+        
+        self.DxH1[:3] = np.dot(self.A, (self.x1 - self.x01))
+        return self.DxH1
 
     def gradient_xh2(self) -> np.ndarray:
         """
@@ -128,9 +132,8 @@ class DistOpt:
         Returns:
             np.array: Gradient of the second constraint.
         """
-        DxH2 = np.zeros((6,))
-        DxH2[3:] = np.dot(self.B, (self.x2 - self.x02))
-        return DxH2
+        self.DxH2[3:] = np.dot(self.B, (self.x2 - self.x02))
+        return self.DxH2
 
     def gradient_qh1(self) -> np.ndarray:
         """
@@ -139,8 +142,7 @@ class DistOpt:
         Returns:
             np.array: Gradient of the first constraint.
         """
-        DqH1 = np.dot(np.dot(self.J01.T, self.A), (self.x1 - self.x01))
-        return DqH1
+        return np.dot(np.dot(self.J01.T, self.A), (self.x1 - self.x01))
 
     def gradient_qh2(self) -> np.ndarray:
         """
@@ -149,8 +151,7 @@ class DistOpt:
         Returns:
             np.array: Gradient of the second constraint.
         """
-        DqH2 = np.dot(np.dot(self.J02.T, self.B), (self.x2 - self.x02))
-        return DqH2
+        return np.dot(np.dot(self.J02.T, self.B), (self.x2 - self.x02))
 
     def hessian_qx_L(self) -> np.ndarray:
         """
@@ -159,12 +160,11 @@ class DistOpt:
         Returns:
             np.array: Hessian of the Lagrangian w.rt. x = (x1, x2).T and q.
         """
-        DDqxl = np.zeros((6, 7))
+        
+        self.DDqxl[:3, :] = self.lambda1 * np.dot(self.A, self.J01)
+        self.DDqxl[3:, :] = self.lambda2 * np.dot(self.B, self.J02)
 
-        DDqxl[:3, :] = self.lambda1 * np.dot(self.A, self.J01)
-        DDqxl[3:, :] = self.lambda2 * np.dot(self.B, self.J02)
-
-        return DDqxl
+        return self.DDqxl
 
     def M(self) -> np.ndarray:
         """
@@ -173,13 +173,12 @@ class DistOpt:
         Returns:
             np.array: M0 matrix.
         """
-        M = np.zeros((8, 8))
-        M[:6, :6] = self.hessian_xxL()
-        M[:6, 6] = self.gradient_xh1()
-        M[:6, 7] = self.gradient_xh2()
-        M[6, :6] = self.gradient_xh1().T
-        M[7, :6] = self.gradient_xh2().T
-        return M
+        self.M_matrix[:6, :6] = self.hessian_xxL()
+        self.M_matrix[:6, 6] = self.gradient_xh1()
+        self.M_matrix[:6, 7] = self.gradient_xh2()
+        self.M_matrix[6, :6] = self.gradient_xh1().T
+        self.M_matrix[7, :6] = self.gradient_xh2().T
+        return self.M_matrix
 
     def N(self) -> np.ndarray:
         """
@@ -188,13 +187,11 @@ class DistOpt:
         Returns:
             np.array: N matrix.
         """
-        N = np.zeros((8, 7))
+        self.N_matrix[:6, :] = self.hessian_qx_L()
+        self.N_matrix[6, :] = self.gradient_qh1()
+        self.N_matrix[7, :] = self.gradient_qh2()
 
-        N[:6, :] = self.hessian_qx_L()
-        N[6, :] = self.gradient_qh1()
-        N[7, :] = self.gradient_qh2()
-
-        return N
+        return self.N_matrix
 
     def invMN(self) -> np.ndarray:
         """
