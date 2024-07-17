@@ -3,7 +3,6 @@ import contextlib
 import os
 import unittest
 import numpy as np
-from scipy.optimize import minimize
 import casadi
 
 import hppfcl

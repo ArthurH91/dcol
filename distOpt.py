@@ -8,10 +8,10 @@ np.set_printoptions(3)
 
 class DistOpt:
 
-    def __init__(self) -> None:
-        pass
+    # def __init__(self) -> None:
+    #     pass
 
-    def set_matrices(self) -> None:
+    def __init__(self) -> None:
         self.Dxl = np.zeros((6,))
         self.DDxl = np.zeros((6, 6))
         self.DxH1 = np.zeros((6,))
@@ -245,176 +245,266 @@ class DistOpt:
 
 
 class TestDistOpt(unittest.TestCase):
-
+    
+    
     def setEllispoidsRadii(self):
 
-        self.A = np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
-        self.B = np.array([[3, 0, 0], [0, 2, 0], [0, 0, 1]])
+        A = np.array([[1, 0, 0], [0, 0.2, 0], [0, 0, 0.3]])
+        B = np.array([[0.1, 0, 0], [0, 0.6, 0], [0, 0, 1]])
 
-    def computeEllipsoidOpt(self, x0):
-
-        x01 = x0[:3]
-        x02 = x0[3:]
-        # Initialize the QCQPSolver with the ellipsoid parameters
-        qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(x01, self.A, x02, self.B)
-        qcqp_solver.solve_problem(warm_start_primal=np.concatenate((x01, x02)))
-
-        self.x1, self.x2 = qcqp_solver.get_optimal_values()
-        self.distance = qcqp_solver.get_minimum_cost()
-
-        self.lambda1, self.lambda2 = qcqp_solver.get_dual_values()
-
-    def getXSol(self, x0):
-
-        self.computeEllipsoidOpt(x0)
-
-        return np.concatenate((self.x1, self.x2))
-
-    def get_dY_dXo(self, x0):
-
-        x01 = x0[:3]
-        x02 = x0[3:]
-
-        self.computeEllipsoidOpt(x0)
-        self.opt = DistOpt()
-
-        dx1_do, dx2_do = self.opt.get_dY_dXo(
-            self.x1,
-            self.x2,
-            self.distance,
-            self.lambda1,
-            self.lambda2,
-            self.A,
-            self.B,
-            x01,
-            x02,
-        )
-        return np.concatenate((dx1_do, dx2_do))
-
-    def compareFiniteDiff_dX_dXo(self):
-
-        self.setEllispoidsRadii()
-
-        x0 = np.array([0, 1, 2, 6, 7, 8])
-
-        J_finite_diff = self.numdiff(self.getXSol, x0)
-        J = self.get_dY_dXo(x0)
-        print(
-            "--------------------------------- compareFiniteDiff_dX_dXo ----------------------"
-        )
-        print(f"finite diff : \n {J_finite_diff- J} \n")
-        print(
-            f"np.linalg.norm(J_finite_diff - J) : \n {np.linalg.norm(J_finite_diff - J)} \n"
-        )
-
-    def get_gradient_xL_wrt_x0(self, x0):
-
-        self.opt = DistOpt()
-        self.opt.set_matrices()
-        self.setEllispoidsRadii()
+        return A,B
+    
+    def compute_gradient_xL_wrt_x0(self, x0):
         
-        self.opt.set_up_ellips()
-        self.computeEllipsoidOpt(x0)
-
-        self.opt.set_up_optim_var(
-            self.x1, self.x2, self.distance, self.lambda1, self.lambda2
-        )
-
-        return self.opt.gradient_xL()
-
-    def get_gradient_xL_wrt_xSol(self, xSol):
-
-        self.opt = DistOpt()
-        self.opt.set_matrices()
-
-        x1 = xSol[:3]
-        x2 = xSol[3:]
-
-        self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
-
+        ### Setting up the problem
+        
+        # Setting up the variables of the ellipsoid minimal distance problem
+        A, B = self.setEllispoidsRadii()
+        
+        # Centers of the ellipsoids
+        x01 = x0[:3]
+        x02 = x0[3:]
+        
+        print("------------- NUMDIFF ------------------ ")
+        print(f"x01: {x01}")
+        print(f"x02: {x02}")
         # Initialize the QCQPSolver with the ellipsoid parameters
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(self.x01, self.A, self.x02, self.B)
-        qcqp_solver.solve_problem(
-            warm_start_primal=np.concatenate((self.x01, self.x02))
-        )
+        qcqp_solver.setup_problem(x01, A, x02, B)
+        qcqp_solver.solve_problem(warm_start_primal=x0)
 
+        # Taking out the variables necessary for computing the gradient
+        xSol1, xSol2 = qcqp_solver.get_optimal_values()
+        
+        print(f"xSol1: {xSol1}")
+        print(f"xSol2: {xSol2}")
         distance = qcqp_solver.get_minimum_cost()
-
         lambda1, lambda2 = qcqp_solver.get_dual_values()
+        
+        
+        print(f"lambda1 : {lambda1}")
+        print(f"lambda2 : {lambda2}")
+        ### Computing the gradient
+        opt = DistOpt()
+        opt.set_up_ellips(A, B, x01, x02)
+        opt.set_up_optim_var(xSol1, xSol2, distance, lambda1, lambda2)
+        
+        print(f"xsol1 - xsol2 : {xSol1 - xSol2}")
+        print(f"lambda1 * A: {lambda1 * A}")
+        print(f"lambda1 * A @ (x1 -x01) : {lambda1 * np.matmul(A, (xSol1 - x01))}")
+        print(f"numdiff opt.gradient_xL(): \n {opt.gradient_xL()} ")
+        print("------------- END NUMDIFF ------------------ ")
 
-        self.opt.set_up_optim_var(x1, x2, distance, lambda1, lambda2)
+        return opt.gradient_xL()
+    
+    def compute_Hessian_xx0L(self, x0):
+        
+        ### Setting up the problem
+        
+        # Setting up the variables of the ellipsoid minimal distance problem
+        A, B = self.setEllispoidsRadii()
+        
+        # Centers of the ellipsoids
+        x01 = x0[:3]
+        x02 = x0[3:]
+        
+        # Initialize the QCQPSolver with the ellipsoid parameters
+        qcqp_solver = EllipsoidOptimization()
+        qcqp_solver.setup_problem(x01, A, x02, B)
+        qcqp_solver.solve_problem(warm_start_primal=x0)
 
-        return self.opt.gradient_xL()
+        # Taking out the variables necessary for computing the gradient
+        xSol1, xSol2 = qcqp_solver.get_optimal_values()
+        distance = qcqp_solver.get_minimum_cost()
+        lambda1, lambda2 = qcqp_solver.get_dual_values()
+        
+        ### Computing the gradient
+        opt = DistOpt()
+        opt.set_up_ellips(A, B, x01, x02)
+        opt.set_up_optim_var(xSol1, xSol2, distance, lambda1, lambda2)
+        print(f"opt.gradient_xL(): \n {opt.gradient_xL()} ")
 
-    def test_N(self):
+        return opt.hessian_ox_L()
+    
+    def test_numdiff_Hessian_xx0L(self):
+        
+        x0 = np.array([1.0,2.0,3.0,10.0,11.0,12.0])
+        
+        numdiff_hess = self.numdiff(self.compute_gradient_xL_wrt_x0, x0, 1e-6)
+        print(f"numdiff_hess : \n{numdiff_hess}")
+        hess = self.compute_Hessian_xx0L(x0)
+        print(f"hess : \n{hess}")
+        self.assertTrue(np.testing.assert_almost_equal(hess, numdiff_hess ))
+        
+        
+    
+    
+        
 
-        x0 = np.array([0, 1, 2, 6, 7, 8])
+    # def computeEllipsoidOpt(self, x0):
 
-        self.setEllispoidsRadii()
-        self.computeEllipsoidOpt(x0)
+    #     x01 = x0[:3]
+    #     x02 = x0[3:]
+    #     # Initialize the QCQPSolver with the ellipsoid parameters
+    #     qcqp_solver = EllipsoidOptimization()
+    #     qcqp_solver.setup_problem(x01, self.A, x02, self.B)
+    #     qcqp_solver.solve_problem(warm_start_primal=np.concatenate((x01, x02)))
 
-        self.opt.set_up_optim_var(
-            self.x1, self.x2, self.distance, self.lambda1, self.lambda2
-        )
-        N = self.opt.N()
+    #     self.x1, self.x2 = qcqp_solver.get_optimal_values()
+    #     self.distance = qcqp_solver.get_minimum_cost()
 
-        ## Finite diff
+    #     self.lambda1, self.lambda2 = qcqp_solver.get_dual_values()
 
-        N_numdiff = self.numdiff(self.get_gradient_xL_wrt_x0, x0)
+    # def getXSol(self, x0):
 
-        print("--------------------------------- test_N ----------------------")
-        print(f"N- N_numdiff :\n {N- N_numdiff}\n")
-        print(f"np.linalg.norm(N- N_numdiff) :\n {np.linalg.norm(N- N_numdiff)}")
+    #     self.computeEllipsoidOpt(x0)
 
-        print(f"N: \n {N[:6,:6]}")
-        print(f"N_numdiff: \n {N_numdiff}")
+    #     return np.concatenate((self.x1, self.x2))
+
+    # def get_dY_dXo(self, x0):
+
+    #     x01 = x0[:3]
+    #     x02 = x0[3:]
+
+    #     self.computeEllipsoidOpt(x0)
+    #     self.opt = DistOpt()
+
+    #     dx1_do, dx2_do = self.opt.get_dY_dXo(
+    #         self.x1,
+    #         self.x2,
+    #         self.distance,
+    #         self.lambda1,
+    #         self.lambda2,
+    #         self.A,
+    #         self.B,
+    #         x01,
+    #         x02,
+    #     )
+    #     return np.concatenate((dx1_do, dx2_do))
+
+    # def compareFiniteDiff_dX_dXo(self):
+
+    #     self.setEllispoidsRadii()
+
+    #     x0 = np.array([0, 1, 2, 6, 7, 8])
+
+    #     J_finite_diff = self.numdiff(self.getXSol, x0)
+    #     J = self.get_dY_dXo(x0)
+    #     print(
+    #         "--------------------------------- compareFiniteDiff_dX_dXo ----------------------"
+    #     )
+    #     print(f"finite diff : \n {J_finite_diff- J} \n")
+    #     print(
+    #         f"np.linalg.norm(J_finite_diff - J) : \n {np.linalg.norm(J_finite_diff - J)} \n"
+    #     )
+
+    # def get_gradient_xL_wrt_x0(self, x0):
+
+    #     self.opt = DistOpt()
+    #     self.opt.set_matrices()
+    #     self.setEllispoidsRadii()
+        
+    #     self.opt.set_up_ellips()
+    #     self.computeEllipsoidOpt(x0)
+
+    #     self.opt.set_up_optim_var(
+    #         self.x1, self.x2, self.distance, self.lambda1, self.lambda2
+    #     )
+
+    #     return self.opt.gradient_xL()
+
+    # def get_gradient_xL_wrt_xSol(self, xSol):
+
+    #     self.opt = DistOpt()
+    #     self.opt.set_matrices()
+
+    #     x1 = xSol[:3]
+    #     x2 = xSol[3:]
+
+    #     self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
+
+    #     # Initialize the QCQPSolver with the ellipsoid parameters
+    #     qcqp_solver = EllipsoidOptimization()
+    #     qcqp_solver.setup_problem(self.x01, self.A, self.x02, self.B)
+    #     qcqp_solver.solve_problem(
+    #         warm_start_primal=np.concatenate((self.x01, self.x02))
+    #     )
+
+    #     distance = qcqp_solver.get_minimum_cost()
+
+    #     lambda1, lambda2 = qcqp_solver.get_dual_values()
+
+    #     self.opt.set_up_optim_var(x1, x2, distance, lambda1, lambda2)
+
+    #     return self.opt.gradient_xL()
+
+    # def test_N(self):
+
+    #     x0 = np.array([0, 1, 2, 6, 7, 8])
+
+    #     self.setEllispoidsRadii()
+    #     self.computeEllipsoidOpt(x0)
+
+    #     self.opt.set_up_optim_var(
+    #         self.x1, self.x2, self.distance, self.lambda1, self.lambda2
+    #     )
+    #     N = self.opt.N()
+
+    #     ## Finite diff
+
+    #     N_numdiff = self.numdiff(self.get_gradient_xL_wrt_x0, x0)
+
+    #     print("--------------------------------- test_N ----------------------")
+    #     print(f"N- N_numdiff :\n {N- N_numdiff}\n")
+    #     print(f"np.linalg.norm(N- N_numdiff) :\n {np.linalg.norm(N- N_numdiff)}")
+
+    #     print(f"N: \n {N[:6,:6]}")
+    #     print(f"N_numdiff: \n {N_numdiff}")
 
     # def test_MN(self):
     #     MN = self.opt.invMN()
     #     print(MN.shape)
 
-    def test_M(self):
+    # def test_M(self):
 
-        x0 = np.array([0, 1, 2, 6, 7, 8])
+    #     x0 = np.array([0, 1, 2, 6, 7, 8])
 
-        self.setEllispoidsRadii()
-        self.opt = DistOpt()
-        self.opt.set_matrices()
+    #     self.setEllispoidsRadii()
+    #     self.opt = DistOpt()
+    #     self.opt.set_matrices()
 
-        self.x01 = x0[:3]
-        self.x02 = x0[3:]
-        self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
+    #     self.x01 = x0[:3]
+    #     self.x02 = x0[3:]
+    #     self.opt.set_up_ellips(self.A, self.B, self.x01, self.x02)
 
-        # Initialize the QCQPSolver with the ellipsoid parameters
-        qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(self.x01, self.opt.A, self.x02, self.opt.B)
-        qcqp_solver.solve_problem(
-            warm_start_primal=np.concatenate((self.x01, self.x02))
-        )
+    #     # Initialize the QCQPSolver with the ellipsoid parameters
+    #     qcqp_solver = EllipsoidOptimization()
+    #     qcqp_solver.setup_problem(self.x01, self.opt.A, self.x02, self.opt.B)
+    #     qcqp_solver.solve_problem(
+    #         warm_start_primal=np.concatenate((self.x01, self.x02))
+    #     )
 
-        x1, x2 = qcqp_solver.get_optimal_values()
-        x = np.concatenate((x1, x2))
-        distance = qcqp_solver.get_minimum_cost()
+    #     x1, x2 = qcqp_solver.get_optimal_values()
+    #     x = np.concatenate((x1, x2))
+    #     distance = qcqp_solver.get_minimum_cost()
 
-        lambda1, lambda2 = qcqp_solver.get_dual_values()
+    #     lambda1, lambda2 = qcqp_solver.get_dual_values()
 
-        self.opt.set_up_optim_var(x1, x2, distance, lambda1, lambda2)
-        M = self.opt.M()
+    #     self.opt.set_up_optim_var(x1, x2, distance, lambda1, lambda2)
+    #     M = self.opt.M()
 
-        ## Finite diff
+    #     ## Finite diff
 
-        M_numdiff = self.numdiff(self.get_gradient_xL_wrt_xSol, x)
+    #     M_numdiff = self.numdiff(self.get_gradient_xL_wrt_xSol, x)
 
-        print("--------------------------------- test_M ----------------------")
-        print(f"M- M_numdiff : \n {M[:6,:6] - M_numdiff}")
-        print(
-            f"np.linalg.norm(M- M_numdiff) : \n {np.linalg.norm(M[:6,:6]- M_numdiff)}"
-        )
+    #     print("--------------------------------- test_M ----------------------")
+    #     print(f"M- M_numdiff : \n {M[:6,:6] - M_numdiff}")
+    #     print(
+    #         f"np.linalg.norm(M- M_numdiff) : \n {np.linalg.norm(M[:6,:6]- M_numdiff)}"
+    #     )
 
-        print(f"M: \n {M[:6,:6]}")
-        print(f"M_numdiff: \n {M_numdiff}")
+    #     print(f"M: \n {M[:6,:6]}")
+    #     print(f"M_numdiff: \n {M_numdiff}")
 
     # Numerical difference function
     def numdiff(self, f, inX, h=1e-6):
@@ -430,16 +520,16 @@ class TestDistOpt(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main()
+    unittest.main()
 
-    test = TestDistOpt()
-    test.setUp()
-    # # test.test_M()
-    # # test.test_N()
-    # # test.test_MN()
-    test.compareFiniteDiff_dX_dXo()
-    test.test_N()
-    test.test_M()
+    # test = TestDistOpt()
+    # test.setUp()
+    # # # test.test_M()
+    # # # test.test_N()
+    # # # test.test_MN()
+    # test.compareFiniteDiff_dX_dXo()
+    # test.test_N()
+    # test.test_M()
 
     # A = np.array([[1, 0, 0], [0, 2, 0], [0, 0, 3]])
     # B = np.array([[3, 0, 0], [0, 2, 0], [0, 0, 1]])
