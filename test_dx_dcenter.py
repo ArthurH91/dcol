@@ -1,5 +1,7 @@
 import numpy as np
 from qcqp_solver import EllipsoidOptimization
+import pinocchio as pin
+
 np.random.seed(0)
 np.set_printoptions(3)
 
@@ -18,6 +20,13 @@ def numdiff(f, inX, h=1e-6):
 
 A = 3 * np.array([[1, 0, 0], [0, 0.2, 0], [0, 0, 0.3]])
 B = np.array([[0.1, 0, 0], [0, 0.6, 0], [0, 0, 1]])
+
+R_A = pin.utils.rotate("x", np.pi/4)
+R_B = pin.utils.rotate("y", np.pi/2)
+
+A = R_A.T @ A @ R_A
+B = R_B.T @ B @ R_B
+
 
 
 def lagrangian(x, lambda_, center):
