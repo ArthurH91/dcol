@@ -57,7 +57,7 @@ class EllipsoidOptimization:
         self.B_rot = self.R_B.T @ B @ self.R_B
 
         # Define the cost function (distance between closest points)
-        self.totalcost = casadi.norm_2((self.x1 - self.x2))**2 / 2
+        self.totalcost = casadi.norm_2((self.x1 - self.x2)) 
 
         # Define the constraints for the ellipsoids
         self.con1 = (self.x1 - x0_1).T @ self.A_rot @ (self.x1 - x0_1) / 2 == 1 / 2

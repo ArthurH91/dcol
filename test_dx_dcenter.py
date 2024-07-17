@@ -28,7 +28,7 @@ def lagrangian(x, lambda_, center):
     center_1 = center[:3]
     center_2 = center[3:]
 
-    return (0.5 * np.linalg.norm(x1 - x2, 2)**2 + lambda_1 * ((x1 - center_1).T @ A @ (x1 - center_1) - 1) / 2 + lambda_2 * ((x2 - center_2).T @ B @ (x2 - center_2)-1) / 2).item()
+    return (np.linalg.norm(x1 - x2, 2) + lambda_1 * ((x1 - center_1).T @ A @ (x1 - center_1) - 1) / 2 + lambda_2 * ((x2 - center_2).T @ B @ (x2 - center_2)-1) / 2).item()
 
 
 
@@ -83,19 +83,29 @@ def grad_x(x, lambda_, center):
     lambda_2 = lambda_[1]
     center_1 = center[:3]
     center_2 = center[3:]
-    g1 = (x1 - x2) + lambda_1 * A @ (x1 - center_1)
-    g2 = - (x1 - x2)  + lambda_2 * B @ (x2 - center_2) 
+    g1 = (x1 - x2) / np.linalg.norm(x1 - x2, 2) + lambda_1 * A @ (x1 - center_1)
+    g2 = - (x1 - x2) /np.linalg.norm(x1 - x2, 2) + lambda_2 * B @ (x2 - center_2) 
     return np.concatenate((g1, g2))
 
 def hessian_xx(x, lambda_, center):
+    x1 = x[:3]
+    x2 = x[3:]
     lambda_1 = lambda_[0]
     lambda_2 = lambda_[1]
 
     H = np.zeros((6, 6))
-    H[:3, 3:] =  - np.eye(3)
-    H[3:, :3] =  - np.eye(3)
-    H[:3, :3] =  np.eye(3) +  lambda_1 * A
-    H[3:, 3:] =  np.eye(3) +  lambda_2 * B
+    
+    d = np.linalg.norm(x1 - x2, 2)
+
+    v = (x1 - x2).reshape((3, 1)) @ (x1 - x2).reshape((1, 3))
+
+    I_diag = np.eye(3) / d  -  v  / (d**2) ** (3/2)
+    I_off_diag =  - np.eye(3) / d + v  / (d**2) ** (3/2)
+
+    H[:3, 3:] =  I_off_diag
+    H[3:, :3] =  I_off_diag
+    H[:3, :3] =  I_diag +  lambda_1 * A
+    H[3:, 3:] =  I_diag +  lambda_2 * B
     
     return H
 
@@ -119,8 +129,8 @@ def func_lambda_annalytical(center):
     qcqp_solver.solve_problem(warm_start_primal=center)
     x1, x2 = qcqp_solver.get_optimal_values()
 
-    l1 = - np.linalg.norm(x1 - x2, 2) ** 2 /  ((x1- x2).T @ A @ (x1 - center_1)).item()
-    l2 = np.linalg.norm(x1 - x2, 2) ** 2 /  ((x1- x2).T @ B @ (x2 - center_2)).item()
+    l1 = - np.linalg.norm(x1 - x2, 2) /  ((x1- x2).T @ A @ (x1 - center_1)).item()
+    l2 = np.linalg.norm(x1 - x2, 2) /  ((x1- x2).T @ B @ (x2 - center_2)).item()
     return np.array([l1, l2])
 
 
@@ -132,7 +142,7 @@ def func_distance_annalytical(center):
     qcqp_solver.solve_problem(warm_start_primal=center)
     x1, x2 = qcqp_solver.get_optimal_values()
 
-    return 0.5 * np.linalg.norm(x1 - x2, 2) ** 2
+    return np.linalg.norm(x1 - x2, 2)
 
 
 def x_star(center):
