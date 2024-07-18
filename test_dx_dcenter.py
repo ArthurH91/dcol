@@ -2,6 +2,8 @@ import numpy as np
 from qcqp_solver import EllipsoidOptimization
 import pinocchio as pin
 
+import hppfcl
+
 np.random.seed(0)
 np.set_printoptions(3)
 
@@ -21,6 +23,8 @@ def numdiff(f, inX, h=1e-6):
 A = 3 * np.array([[1, 0, 0], [0, 0.2, 0], [0, 0, 0.3]])
 B = np.array([[0.1, 0, 0], [0, 0.6, 0], [0, 0, 1]])
 
+Aradii = np.array([1/A[0,0], 1/A[1,1] ,1/A[2,2]])
+Bradii = np.array([1/B[0,0], 1/B[1,1] ,1/B[2,2]])
 R_A = pin.utils.rotate("x", np.pi/4)
 R_B = pin.utils.rotate("y", np.pi/2)
 
@@ -224,7 +228,52 @@ def dx_dcenter(center):
     return dy[:6]
 
 
+def get_distance_hppfcl(center, Aradii, Bradii, R_A, R_B):
+    
+    elipsA = hppfcl.Ellipsoid(Aradii[0], Aradii[1], Aradii[2])
+    elipsB = hppfcl.Ellipsoid(Bradii[0], Bradii[1], Bradii[2])
+    
+    centerA = pin.SE3(center[:3], R_A)
+    centerB = pin.SE3(center[3:], R_B)
+    
+    req = hppfcl.DistanceRequest()
+    res = hppfcl.DistanceResult()
+    
+    dist = hppfcl.distance(
+        elipsA,
+        centerA,
+        elipsB,
+        centerB,
+        req, 
+        res
+    )
 
+    return dist
+
+
+def get_closest_points_hppfcl(center, Aradii, Bradii, R_A, R_B):
+    
+    elipsA = hppfcl.Ellipsoid(Aradii[0], Aradii[1], Aradii[2])
+    elipsB = hppfcl.Ellipsoid(Bradii[0], Bradii[1], Bradii[2])
+    
+    centerA = pin.SE3(center[:3], R_A)
+    centerB = pin.SE3(center[3:], R_B)
+    
+    req = hppfcl.DistanceRequest()
+    res = hppfcl.DistanceResult()
+    
+    _ = hppfcl.distance(
+        elipsA,
+        centerA,
+        elipsB,
+        centerB,
+        req, 
+        res
+    )
+
+    cp1 = res.getNearestPoint1()
+    cp2 = res.getNearestPoint2()
+    return cp1, cp2
 
 
 x = np.random.random(6)
