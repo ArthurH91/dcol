@@ -1,5 +1,5 @@
 import numpy as np
-from qcqp_solver import EllipsoidOptimization
+from qcqp_solver import EllipsoidOptimization, radii_to_matrix
 import pinocchio as pin
 
 import hppfcl
@@ -20,16 +20,49 @@ def numdiff(f, inX, h=1e-6):
         x[ix] = inX[ix]
     return df_dx
 
-A = 3 * np.array([[1, 0, 0], [0, 0.2, 0], [0, 0, 0.3]])
-B = np.array([[0.1, 0, 0], [0, 0.6, 0], [0, 0, 1]])
 
-Aradii = np.array([1/A[0,0], 1/A[1,1] ,1/A[2,2]])
-Bradii = np.array([1/B[0,0], 1/B[1,1] ,1/B[2,2]])
+# Define initial positions for the centers of the two ellipsoids
+# x0_1 = [4, 0, 0]
+# x0_2 = [0, 0, 1]
+
+# Define the radii for the ellipsoids
+# radiA = [1.5, 1, 1]
+# radiB = [2, 1, 1.9]
+
+# # Define the matrices representing the ellipsoids
+# A_ = radii_to_matrix(radiA)
+# B_ = radii_to_matrix(radiB)
+
+# # Add some rotation
+# R_A = pin.utils.rotate("x", np.pi/4)
+# R_B = pin.utils.rotate("y", np.pi/2)
+
+# # R_A = np.eye(3)
+# # R_B = np.eye(3)
+# A = R_A.T @ A_ @ R_A
+# B = R_B.T @ B_ @ R_B
+# 
+
+
+A_ = 3 * np.array([[1, 0, 0], [0, 0.2, 0], [0, 0, 0.3]])
+B_ = np.array([[0.1, 0, 0], [0, 0.6, 0], [0, 0, 1]])
+
+radiiA = [(A_[0,0])**(-1/2), A_[1,1]**(-1/2), A_[2,2]**(-1/2)]
+radiiB = [B_[0,0]**(-1/2), B_[1,1]**(-1/2), B_[2,2]**(-1/2)]
+
+AA = radii_to_matrix(radiiA)
+BB = radii_to_matrix(radiiB)
+
+assert np.linalg.norm(A_ - AA) < 1e-6, "The radii A and the matrix A are not the same"
+assert np.linalg.norm(B_ - BB) < 1e-6,  "The radii B and the matrix B are not the same"
+
 R_A = pin.utils.rotate("x", np.pi/4)
 R_B = pin.utils.rotate("y", np.pi/2)
 
-A = R_A.T @ A @ R_A
-B = R_B.T @ B @ R_B
+# R_A = np.eye(3)
+# R_B = np.eye(3 )
+A = R_A.T @ AA @ R_A
+B = R_B.T @ BB @ R_B
 
 
 
@@ -227,14 +260,23 @@ def dx_dcenter(center):
 
     return dy[:6]
 
+def get_xSol_solver(center):
+    center_1 = center[:3]
+    center_2 = center[3:]
+    qcqp_solver = EllipsoidOptimization()
+    qcqp_solver.setup_problem(center_1, A, center_2, B)
+    qcqp_solver.solve_problem(warm_start_primal=center)
+    xSol1, xSol2 = qcqp_solver.get_optimal_values()
 
-def get_distance_hppfcl(center, Aradii, Bradii, R_A, R_B):
+    return np.concatenate((xSol1, xSol2))
+
+def get_distance_hppfcl(center):
     
-    elipsA = hppfcl.Ellipsoid(Aradii[0], Aradii[1], Aradii[2])
-    elipsB = hppfcl.Ellipsoid(Bradii[0], Bradii[1], Bradii[2])
+    elipsA = hppfcl.Ellipsoid(radiiA[0], radiiA[1], radiiA[2])
+    elipsB = hppfcl.Ellipsoid(radiiB[0], radiiB[1], radiiB[2])
     
-    centerA = pin.SE3(center[:3], R_A)
-    centerB = pin.SE3(center[3:], R_B)
+    centerA = pin.SE3(R_A, center[:3])
+    centerB = pin.SE3(R_B, center[3:])
     
     req = hppfcl.DistanceRequest()
     res = hppfcl.DistanceResult()
@@ -251,13 +293,13 @@ def get_distance_hppfcl(center, Aradii, Bradii, R_A, R_B):
     return dist
 
 
-def get_closest_points_hppfcl(center, Aradii, Bradii, R_A, R_B):
+def get_closest_points_hppfcl(center):
     
-    elipsA = hppfcl.Ellipsoid(Aradii[0], Aradii[1], Aradii[2])
-    elipsB = hppfcl.Ellipsoid(Bradii[0], Bradii[1], Bradii[2])
+    elipsA = hppfcl.Ellipsoid(radiiA[0], radiiA[1], radiiA[2])
+    elipsB = hppfcl.Ellipsoid(radiiB[0], radiiB[1], radiiB[2])
     
-    centerA = pin.SE3(center[:3], R_A)
-    centerB = pin.SE3(center[3:], R_B)
+    centerA = pin.SE3(R_A, center[:3])
+    centerB = pin.SE3(R_B, center[3:])
     
     req = hppfcl.DistanceRequest()
     res = hppfcl.DistanceResult()
@@ -273,7 +315,21 @@ def get_closest_points_hppfcl(center, Aradii, Bradii, R_A, R_B):
 
     cp1 = res.getNearestPoint1()
     cp2 = res.getNearestPoint2()
-    return cp1, cp2
+    return np.concatenate((cp1, cp2))
+
+
+def func_lambda_hppfcl(center):
+
+    center_1 = center[:3]
+    center_2 = center[3:]
+
+    x = get_closest_points_hppfcl(center, radiiA, radiiB)
+    x1 = x[:3]
+    x2 = x[3:]
+
+    l1 = -np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ A @ (x1 - center_1)).item()
+    l2 = np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ B @ (x2 - center_2)).item()
+    return np.array([l1, l2])
 
 
 x = np.random.random(6)
@@ -306,3 +362,11 @@ assert np.linalg.norm(dh2_dcenter_ND - dh2_dcenter(x, center)) < set_tol
 assert  np.linalg.norm(func_lambda_annalytical(center)- func_lambda(center)) < set_tol
 assert  np.linalg.norm(func_distance_annalytical(center)- func_distance(center)) < set_tol
 assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol
+
+## HPPFCL COMPARISON 
+
+
+print(f"get_closest_points_hppfcl(center): {get_closest_points_hppfcl(center)} ")
+print(f"get_xSol_solver(center): {get_xSol_solver(center)} ")
+print(f"get_xSol_solver(center) - get_closest_points_hppfcl(center): {get_xSol_solver(center) - get_closest_points_hppfcl(center)}" )
+print(f"np.linalg.norm(get_xSol_solver(center) - get_closest_points_hppfcl(center)): {np.linalg.norm(get_xSol_solver(center) - get_closest_points_hppfcl(center))}" )
