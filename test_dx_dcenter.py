@@ -173,10 +173,7 @@ def x_star(center):
     qcqp_solver = EllipsoidOptimization()
     qcqp_solver.setup_problem(center_1, A, center_2, B)
     qcqp_solver.solve_problem(warm_start_primal=center)
-
     xSol1, xSol2 = qcqp_solver.get_optimal_values()
-    # distance = qcqp_solver.get_minimum_cost()
-    # lambda1, lambda2 = qcqp_solver.get_dual_values()
     return np.concatenate((xSol1, xSol2))
 
 
@@ -235,16 +232,6 @@ def dx_dcenter(center):
     dy = - np.linalg.solve(M_matrix, N_matrix)
 
     return dy[:6]
-
-def get_xSol_solver(center):
-    center_1 = center[:3]
-    center_2 = center[3:]
-    qcqp_solver = EllipsoidOptimization()
-    qcqp_solver.setup_problem(center_1, A, center_2, B)
-    qcqp_solver.solve_problem(warm_start_primal=center)
-    xSol1, xSol2 = qcqp_solver.get_optimal_values()
-
-    return np.concatenate((xSol1, xSol2))
 
 def get_distance_hppfcl(center):
     
@@ -345,5 +332,6 @@ assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol * 10 #! TO
 
 
 ## HPPFCL COMPARISON 
-assert  np.linalg.norm(get_closest_points_hppfcl(center) - get_xSol_solver(center) ) < set_tol 
+assert  np.linalg.norm(get_closest_points_hppfcl(center) - x_star(center) ) < set_tol 
 assert np.linalg.norm(func_lambda_annalytical(center) - func_lambda_hppfcl(center)) < set_tol
+assert np.linalg.norm(func_distance_annalytical(center) - get_distance_hppfcl(center)) < set_tol
