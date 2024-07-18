@@ -233,6 +233,36 @@ def dx_dcenter(center):
 
     return dy[:6]
 
+def dx_dcenter_hppfcl(center):
+    center_1 = center[:3]
+    center_2 = center[3:]
+
+    x = get_closest_points_hppfcl(center)
+    lambda_ = func_lambda_hppfcl(center)
+
+    M_matrix = np.zeros((8, 8))
+    N_matrix = np.zeros((8, 6))
+
+    dh1_dx_ = dh1_dx(x, center)
+    dh2_dx_ = dh2_dx(x, center)
+
+    M_matrix[:6, :6] = hessian_xx(x, lambda_, center)
+    M_matrix[:6, 6] = dh1_dx_
+    M_matrix[:6, 7] = dh2_dx_
+    M_matrix[6, :6] = dh1_dx_.T
+    M_matrix[7, :6] = dh2_dx_.T
+  
+    dh1_do_ = dh1_dcenter(x, center)
+    dh2_do_ = dh2_dcenter(x, center)
+
+    N_matrix[:6, :] = hessian_center_x(x, lambda_, center)
+    N_matrix[6, :] = dh1_do_
+    N_matrix[7, :] = dh2_do_
+    
+    dy = - np.linalg.solve(M_matrix, N_matrix)
+
+    return dy[:6]
+
 def get_distance_hppfcl(center):
     
     center_1 = center[:3]
@@ -301,7 +331,7 @@ lambda_ = np.random.random(2)
 
 # Define initial positions for the centers of the two ellipsoids
 x0_1 = np.random.randn(3)
-x0_2 = 10 * np.random.randn(3) 
+x0_2 = 10 * np.random.randn(3) +10
 center = np.concatenate((x0_1, x0_2))
 
 
@@ -312,12 +342,9 @@ dh1_dx_ND = numdiff(lambda variable:h1(variable, center), x)
 dh2_dx_ND = numdiff(lambda variable:h2(variable, center), x)
 dh1_dcenter_ND = numdiff(lambda variable:h1(x, variable), center)
 dh2_dcenter_ND = numdiff(lambda variable:h2(x, variable), center)
-
 dx_dcenter_ND = numdiff(lambda variable:x_star(variable), center)
 
-
 set_tol = 1e-4
-
 
 assert np.linalg.norm(grad_x_ND - grad_x(x, lambda_, center)) < set_tol
 assert np.linalg.norm(hessian_center_x_ND - hessian_center_x(x, lambda_, center)) < set_tol
@@ -330,8 +357,8 @@ assert  np.linalg.norm(func_lambda_annalytical(center)- func_lambda(center)) < s
 assert  np.linalg.norm(func_distance_annalytical(center)- func_distance(center)) < set_tol
 assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol * 10 #! TODO: Understand why it fails
 
-
 ## HPPFCL COMPARISON 
 assert  np.linalg.norm(get_closest_points_hppfcl(center) - x_star(center) ) < set_tol 
 assert np.linalg.norm(func_lambda_annalytical(center) - func_lambda_hppfcl(center)) < set_tol
 assert np.linalg.norm(func_distance_annalytical(center) - get_distance_hppfcl(center)) < set_tol
+assert np.linalg.norm(dx_dcenter_ND - dx_dcenter_hppfcl(center) ) < set_tol * 10 #! TODO: Understand why it fails
