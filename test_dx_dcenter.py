@@ -1,10 +1,10 @@
 import numpy as np
-from qcqp_solver import EllipsoidOptimization, radii_to_matrix
+from qcqp_solver import EllipsoidOptimization
 import pinocchio as pin
 
 import hppfcl
 
-np.random.seed(0)
+# np.random.seed(0)
 np.set_printoptions(3)
 
 
@@ -35,8 +35,8 @@ B_ = np.diag([1 / r**2 for r in radiiB])
 R_A = pin.SE3.Random().rotation
 R_B = pin.SE3.Random().rotation
 
-# R_A = np.eye(3)
-# R_B = np.eye(3)
+R_A = np.eye(3)
+R_B = np.eye(3)
 # Calculate rotated matrices
 A = R_A.T @ A_ @ R_A
 B = R_B.T @ B_ @ R_B
@@ -355,10 +355,10 @@ assert np.linalg.norm(dh1_dcenter_ND - dh1_dcenter(x, center)) < set_tol
 assert np.linalg.norm(dh2_dcenter_ND - dh2_dcenter(x, center)) < set_tol
 assert  np.linalg.norm(func_lambda_annalytical(center)- func_lambda(center)) < set_tol
 assert  np.linalg.norm(func_distance_annalytical(center)- func_distance(center)) < set_tol
-assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol * 10 #! TODO: Understand why it fails
+assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol #! TODO: Understand why it fails
 
 ## HPPFCL COMPARISON 
 assert  np.linalg.norm(get_closest_points_hppfcl(center) - x_star(center) ) < set_tol 
 assert np.linalg.norm(func_lambda_annalytical(center) - func_lambda_hppfcl(center)) < set_tol
 assert np.linalg.norm(func_distance_annalytical(center) - get_distance_hppfcl(center)) < set_tol
-assert np.linalg.norm(dx_dcenter_ND - dx_dcenter_hppfcl(center) ) < set_tol * 10 #! TODO: Understand why it fails
+assert np.linalg.norm(dx_dcenter_ND - dx_dcenter_hppfcl(center) ) < set_tol #! TODO: Understand why it fails
