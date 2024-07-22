@@ -2,9 +2,7 @@ import numpy as np
 import pinocchio as pin
 import hppfcl
 
-from qcqp_solver import radii_to_matrix, EllipsoidOptimization
-from distOpt import DistOpt
-
+from test_dx_dcenter import compute_dx_dcenter
 
 def add_ellips(
     cmodel,
@@ -235,9 +233,8 @@ def get_closest_points(q):
     
     return cp
 
-def dx_dq(q):
 
-    not_center = False
+def dX_dq(q):
 
     # Creating the data models
     rdata = rmodel.createData()
@@ -249,6 +246,7 @@ def dx_dq(q):
     # Poses and geometries of the shapes
     shape1_id = cmodel.getGeometryId("obstacle")
     shape1 = cmodel.geometryObjects[shape1_id]
+    
 
     shape2_id = cmodel.getGeometryId("ellips_rob")
     shape2 = cmodel.geometryObjects[shape2_id]
@@ -261,72 +259,7 @@ def dx_dq(q):
     shape2_geom = shape2.geometry
     shape2_placement = cdata.oMg[shape2_id]
 
-    req = hppfcl.DistanceRequest()
-    res = hppfcl.DistanceResult()
-    dist = hppfcl.distance(
-        shape1_geom,
-        shape1_placement,
-        shape2_geom,
-        shape2_placement,
-        req,
-        res,
-    )
-
-    cp1 = res.getNearestPoint1()
-    cp2 = res.getNearestPoint2()
-
-    jacobian1 = pin.computeFrameJacobian(
-        rmodel,
-        rdata,
-        q,
-        shape1.parentFrame,
-        pin.LOCAL_WORLD_ALIGNED,
-    )
-
-    jacobian2 = pin.computeFrameJacobian(
-        rmodel,
-        rdata,
-        q,
-        shape2.parentFrame,
-        pin.LOCAL_WORLD_ALIGNED,
-    )
-
-    if not_center:
-        ## Transport the jacobian of frame 1 into the jacobian associated to cp1
-        # Vector from frame 1 center to p1
-
-        f1p1 = cp1 - rdata.oMf[shape1.parentFrame].translation
-        # The following 2 lines are the easiest way to understand the transformation
-        # although not the most efficient way to compute it.
-        f1Mp1 = pin.SE3(np.eye(3), f1p1)
-        jacobian1 = f1Mp1.actionInverse @ jacobian1
-
-        ## Transport the jacobian of frame 2 into the jacobian associated to cp2
-        # Vector from frame 2 center to p2
-        f2p2 = cp2 - rdata.oMf[shape2.parentFrame].translation
-        # The following 2 lines are the easiest way to understand the transformation
-        # although not the most efficient way to compute it.
-        f2Mp2 = pin.SE3(np.eye(3), f2p2)
-        jacobian2 = f2Mp2.actionInverse @ jacobian2
-
-    A = radii_to_matrix(DIM_OBS)
-    B = radii_to_matrix(DIM_ROB)
-    x01 = PLACEMENT_OBS.translation
-    x02 = PLACEMENT_ROB.translation
-    qcqp_solver = EllipsoidOptimization(3)
-    qcqp_solver.setup_problem(
-        x01, A, x02, B, PLACEMENT_OBS.rotation, PLACEMENT_ROB.rotation
-    )
-    qcqp_solver.solve_problem(warm_start_primal=np.concatenate((x01, x02)))
-
-    x1, x2 = qcqp_solver.get_optimal_values()
-    distance = qcqp_solver.get_minimum_cost()
-    lambda1, lambda2 = qcqp_solver.get_dual_values()
-
-    distopt = DistOpt()
-    dydq = distopt.get_dY_dq(x1, x2, distance, lambda1, lambda2, A, B ,x01, x02, jacobian1[:3], jacobian2[:3])
-    return dydq
-
+    return compute_dx_dcenter(shape1_geom, shape2_geom, shape1_placement, shape2_placement)
 
 if __name__ == "__main__":
     from wrapper_panda import PandaWrapper
@@ -355,21 +288,16 @@ if __name__ == "__main__":
     q = pin.randomConfiguration(rmodel)
     v = pin.randomConfiguration(rmodel)
     cp1, cp2 = add_closest_points(cmodel, rmodel, q)
-    display_closest_points(viz, cp1, cp2)
+    display_closest_points(viz, cp1, cp2, "cp1", "cp2")
     # Generating the meshcat visualize
     viz.display(q)
 
     print(dd_dt(rmodel, cmodel, np.concatenate((q, v))))
     print(finite_diff_time(q, v))
 
-    dx1,dx2 = dx_dq(q)
+    print(f"dd_dt - finite_diff_time: {dd_dt(rmodel, cmodel, np.concatenate((q, v))) - finite_diff_time(q, v)} ")
+   
+   
+    print(f"dX_dq(q): {dX_dq(q)}")
     
-    dx = numdiff(get_closest_points, q)
     
-    numdx1 = dx[:3,:]
-    numdx2 = dx[3:,:]
-    
-    np.testing.assert_almost_equal(dx1, numdx1, 1e-9)
-    np.testing.assert_almost_equal(dx2, numdx2, 1e-9)
-    
-    print(np.linalg.norm(dx1 - numdx1))
