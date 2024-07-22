@@ -4,9 +4,7 @@ import pinocchio as pin
 
 import hppfcl
 
-# np.random.seed(0)
 np.set_printoptions(3)
-
 
 
 def numdiff(f, inX, h=1e-6):
@@ -21,28 +19,7 @@ def numdiff(f, inX, h=1e-6):
     return df_dx
 
 
-# Define the radii for the ellipsoids
-radiiA = [1,20,1]
-radiiB = [1,20,1]
-
-# Construct matrices A and B for ellipsoid constraints
-A_ = np.diag([1 / r**2 for r in radiiA])
-B_ = np.diag([1 / r**2 for r in radiiB])
-# A = np.diag([1] * 3)
-# B = np.diag([1] * 3)
-
-# Generate random rotation matrices using Pinocchio
-R_A = pin.SE3.Random().rotation
-R_B = pin.SE3.Random().rotation
-
-R_A = np.eye(3)
-R_B = np.eye(3)
-# Calculate rotated matrices
-A = R_A.T @ A_ @ R_A
-B = R_B.T @ B_ @ R_B
-
-
-def lagrangian(x, lambda_, center):
+def lagrangian(x, lambda_, center, A, B):
     x1 = x[:3]
     x2 = x[3:]
     lambda_1 = lambda_[0]
@@ -54,18 +31,18 @@ def lagrangian(x, lambda_, center):
 
 
 
-def h1(x, center):
+def h1(x, center, A):
     x1 = x[:3]
     center_1 = center[:3]
     return (((x1 - center_1).T @ A @ (x1 - center_1) - 1) / 2 ).item()
 
-def h2(x, center):
+def h2(x, center, B):
     x2 = x[3:]
     center_2 = center[3:]
     return (((x2 - center_2).T @ B @ (x2 - center_2)-1) / 2).item()
 
 
-def dh1_dx(x, center):
+def dh1_dx(x, center, A):
     x1 = x[:3]
     center_1 = center[:3]
     g1 = A @ (x1 - center_1)
@@ -74,7 +51,7 @@ def dh1_dx(x, center):
 
 
 
-def dh1_dcenter(x, center):
+def dh1_dcenter(x, center, A):
     x1 = x[:3]
     center_1 = center[:3]
     g1 = - A @ (x1 - center_1)
@@ -82,7 +59,7 @@ def dh1_dcenter(x, center):
     return np.concatenate((g1, g2))
 
 
-def dh2_dcenter(x, center):
+def dh2_dcenter(x, center, B):
     x2 = x[3:]
     center_2 = center[3:]
     g1 = np.zeros(3)
@@ -90,7 +67,7 @@ def dh2_dcenter(x, center):
     return np.concatenate((g1, g2))
 
 
-def dh2_dx(x, center):
+def dh2_dx(x, center, B):
     x2 = x[3:]
     center_2 = center[3:]
     g1 = np.zeros(3)
@@ -98,7 +75,7 @@ def dh2_dx(x, center):
     return np.concatenate((g1, g2))
 
 
-def grad_x(x, lambda_, center):
+def grad_x(x, lambda_, center, A, B):
     x1 = x[:3]
     x2 = x[3:]
     lambda_1 = lambda_[0]
@@ -109,7 +86,7 @@ def grad_x(x, lambda_, center):
     g2 = - (x1 - x2) /np.linalg.norm(x1 - x2, 2) + lambda_2 * B @ (x2 - center_2) 
     return np.concatenate((g1, g2))
 
-def hessian_xx(x, lambda_, center):
+def hessian_xx(x, lambda_, center, A, B):
     x1 = x[:3]
     x2 = x[3:]
     lambda_1 = lambda_[0]
@@ -133,7 +110,7 @@ def hessian_xx(x, lambda_, center):
 
 
 
-def hessian_center_x(x, lambda_, center):
+def hessian_center_x(x, lambda_, center, A, B):
     lambda_1 = lambda_[0]
     lambda_2 = lambda_[1]
 
@@ -213,19 +190,19 @@ def dx_dcenter(center):
     M_matrix = np.zeros((8, 8))
     N_matrix = np.zeros((8, 6))
 
-    dh1_dx_ = dh1_dx(x, center)
-    dh2_dx_ = dh2_dx(x, center)
+    dh1_dx_ = dh1_dx(x, center, A)
+    dh2_dx_ = dh2_dx(x, center, B)
 
-    M_matrix[:6, :6] = hessian_xx(x, lambda_, center)
+    M_matrix[:6, :6] = hessian_xx(x, lambda_, center, A, B)
     M_matrix[:6, 6] = dh1_dx_
     M_matrix[:6, 7] = dh2_dx_
     M_matrix[6, :6] = dh1_dx_.T
     M_matrix[7, :6] = dh2_dx_.T
   
-    dh1_do_ = dh1_dcenter(x, center)
-    dh2_do_ = dh2_dcenter(x, center)
+    dh1_do_ = dh1_dcenter(x, center, A)
+    dh2_do_ = dh2_dcenter(x, center, B)
 
-    N_matrix[:6, :] = hessian_center_x(x, lambda_, center)
+    N_matrix[:6, :] = hessian_center_x(x, lambda_, center, A, B)
     N_matrix[6, :] = dh1_do_
     N_matrix[7, :] = dh2_do_
     
@@ -234,28 +211,26 @@ def dx_dcenter(center):
     return dy[:6]
 
 def dx_dcenter_hppfcl(center):
-    center_1 = center[:3]
-    center_2 = center[3:]
 
     x = get_closest_points_hppfcl(center)
-    lambda_ = func_lambda_hppfcl(center)
+    lambda_ = func_lambda_hppfcl(center, A, B)
 
     M_matrix = np.zeros((8, 8))
     N_matrix = np.zeros((8, 6))
 
-    dh1_dx_ = dh1_dx(x, center)
-    dh2_dx_ = dh2_dx(x, center)
+    dh1_dx_ = dh1_dx(x, center, A)
+    dh2_dx_ = dh2_dx(x, center, B)
 
-    M_matrix[:6, :6] = hessian_xx(x, lambda_, center)
+    M_matrix[:6, :6] = hessian_xx(x, lambda_, center, A, B)
     M_matrix[:6, 6] = dh1_dx_
     M_matrix[:6, 7] = dh2_dx_
     M_matrix[6, :6] = dh1_dx_.T
     M_matrix[7, :6] = dh2_dx_.T
   
-    dh1_do_ = dh1_dcenter(x, center)
-    dh2_do_ = dh2_dcenter(x, center)
+    dh1_do_ = dh1_dcenter(x, center,A)
+    dh2_do_ = dh2_dcenter(x, center, B)
 
-    N_matrix[:6, :] = hessian_center_x(x, lambda_, center)
+    N_matrix[:6, :] = hessian_center_x(x, lambda_, center,A, B)
     N_matrix[6, :] = dh1_do_
     N_matrix[7, :] = dh2_do_
     
@@ -280,8 +255,6 @@ def get_distance_hppfcl(center):
     req.gjk_tolerance = 1e-9
     res = hppfcl.DistanceResult()
     dist = hppfcl.distance(ellipsA, centerA, ellipsB, centerB, req, res)
-
-
 
     return dist
 
@@ -312,7 +285,7 @@ def get_closest_points_hppfcl(center):
     return np.concatenate((cp1, cp2))
 
 
-def func_lambda_hppfcl(center):
+def func_lambda_hppfcl(center, A, B):
 
     center_1 = center[:3]
     center_2 = center[3:]
@@ -326,39 +299,134 @@ def func_lambda_hppfcl(center):
     return np.array([l1, l2])
 
 
-x = np.random.random(6)
-lambda_ = np.random.random(2)
 
-# Define initial positions for the centers of the two ellipsoids
-x0_1 = np.random.randn(3)
-x0_2 = 10 * np.random.randn(3) +10
-center = np.concatenate((x0_1, x0_2))
+def compute_get_closest_points_hppfcl(shape1, shape2, placement1, placement2):
+
+    # Compute distances and nearest points using HPP-FCL
+    req = hppfcl.DistanceRequest()
+    req.gjk_max_iterations = 2000
+    req.gjk_tolerance = 1e-9
+    res = hppfcl.DistanceResult()
+    _ = hppfcl.distance(shape1, placement1, shape2, placement2, req, res)
+
+    cp1 = res.getNearestPoint1()
+    cp2 = res.getNearestPoint2()
+    return np.concatenate((cp1, cp2))
 
 
-grad_x_ND = numdiff(lambda variable:lagrangian(variable, lambda_, center), x)
-hessian_center_x_ND = numdiff(lambda variable:grad_x(x, lambda_, variable), center)
-hessian_xx_ND = numdiff(lambda variable:grad_x(variable, lambda_, center), x)
-dh1_dx_ND = numdiff(lambda variable:h1(variable, center), x)
-dh2_dx_ND = numdiff(lambda variable:h2(variable, center), x)
-dh1_dcenter_ND = numdiff(lambda variable:h1(x, variable), center)
-dh2_dcenter_ND = numdiff(lambda variable:h2(x, variable), center)
-dx_dcenter_ND = numdiff(lambda variable:x_star(variable), center)
+def compute_lambda_hppfcl(shape1, shape2, placement1, placement2, A, B):
 
-set_tol = 1e-4
+    center_1 = placement1.translation
+    center_2 = placement2.translation
 
-assert np.linalg.norm(grad_x_ND - grad_x(x, lambda_, center)) < set_tol
-assert np.linalg.norm(hessian_center_x_ND - hessian_center_x(x, lambda_, center)) < set_tol
-assert np.linalg.norm(hessian_xx_ND - hessian_xx(x, lambda_, center)) < set_tol
-assert np.linalg.norm(dh1_dx_ND - dh1_dx(x, center)) < set_tol
-assert np.linalg.norm(dh2_dx_ND - dh2_dx(x, center)) < set_tol
-assert np.linalg.norm(dh1_dcenter_ND - dh1_dcenter(x, center)) < set_tol
-assert np.linalg.norm(dh2_dcenter_ND - dh2_dcenter(x, center)) < set_tol
-assert  np.linalg.norm(func_lambda_annalytical(center)- func_lambda(center)) < set_tol
-assert  np.linalg.norm(func_distance_annalytical(center)- func_distance(center)) < set_tol
-assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol #! TODO: Understand why it fails
+    x = compute_get_closest_points_hppfcl(shape1, shape2, placement1, placement2)
+    x1 = x[:3]
+    x2 = x[3:]
 
-## HPPFCL COMPARISON 
-assert  np.linalg.norm(get_closest_points_hppfcl(center) - x_star(center) ) < set_tol 
-assert np.linalg.norm(func_lambda_annalytical(center) - func_lambda_hppfcl(center)) < set_tol
-assert np.linalg.norm(func_distance_annalytical(center) - get_distance_hppfcl(center)) < set_tol
-assert np.linalg.norm(dx_dcenter_ND - dx_dcenter_hppfcl(center) ) < set_tol #! TODO: Understand why it fails
+    l1 = -np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ A @ (x1 - center_1)).item()
+    l2 = np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ B @ (x2 - center_2)).item()
+    return np.array([l1, l2])
+
+
+def compute_dx_dcenter(shape1, shape2, placement1, placement2):
+
+    radiiA = shape1.radii
+    radiiB = shape2.radii
+
+    A_ = np.diag([1 / r**2 for r in radiiA])
+    B_ = np.diag([1 / r**2 for r in radiiB])    
+    
+    center_1 = placement1.translation
+    center_2 = placement2.translation
+    center = np.concatenate((center_1, center_2))
+    
+    x = get_closest_points_hppfcl(shape1, shape2, placement1, placement2)
+    lambda_ = func_lambda_hppfcl(shape1, shape2, placement1, placement2, A_, B_)
+
+    M_matrix = np.zeros((8, 8))
+    N_matrix = np.zeros((8, 6))
+
+    dh1_dx_ = dh1_dx(x, center, A_)
+    dh2_dx_ = dh2_dx(x, center, B_)
+
+    M_matrix[:6, :6] = hessian_xx(x, lambda_, center, A_)
+    M_matrix[:6, 6] = dh1_dx_
+    M_matrix[:6, 7] = dh2_dx_
+    M_matrix[6, :6] = dh1_dx_.T
+    M_matrix[7, :6] = dh2_dx_.T
+  
+    dh1_do_ = dh1_dcenter(x, center, A_)
+    dh2_do_ = dh2_dcenter(x, center, B_)
+
+    N_matrix[:6, :] = hessian_center_x(x, lambda_, center, A_, B_)
+    N_matrix[6, :] = dh1_do_
+    N_matrix[7, :] = dh2_do_
+    
+    dy = - np.linalg.solve(M_matrix, N_matrix)
+
+    return dy[:6]
+
+
+if __name__ == "__main__":
+    np.random.seed(2)
+
+    # Define the radii for the ellipsoids
+    radiiA = [1,20,1]
+    radiiB = [1,20,1]
+
+    # Construct matrices A and B for ellipsoid constraints
+    A_ = np.diag([1 / r**2 for r in radiiA])
+    B_ = np.diag([1 / r**2 for r in radiiB])
+    # A = np.diag([1] * 3)
+    # B = np.diag([1] * 3)
+
+    # Generate random rotation matrices using Pinocchio
+    R_A = pin.SE3.Random().rotation
+    R_B = pin.SE3.Random().rotation
+
+    # R_A = np.eye(3)
+    # R_B = np.eye(3)
+
+    # Calculate rotated matrices
+    A = R_A.T @ A_ @ R_A
+    B = R_B.T @ B_ @ R_B
+
+
+    x = np.random.random(6)
+    lambda_ = np.random.random(2)
+
+    # Define initial positions for the centers of the two ellipsoids
+    x0_1 = np.random.randn(3)
+    x0_2 = 10 * np.random.randn(3) +10
+    center = np.concatenate((x0_1, x0_2))
+
+
+    grad_x_ND = numdiff(lambda variable:lagrangian(variable, lambda_, center, A, B ), x)
+    hessian_center_x_ND = numdiff(lambda variable:grad_x(x, lambda_, variable, A, B), center)
+    hessian_xx_ND = numdiff(lambda variable:grad_x(variable, lambda_, center, A, B), x)
+    dh1_dx_ND = numdiff(lambda variable:h1(variable, center, A), x)
+    dh2_dx_ND = numdiff(lambda variable:h2(variable, center, B), x)
+    dh1_dcenter_ND = numdiff(lambda variable:h1(x, variable, A), center)
+    dh2_dcenter_ND = numdiff(lambda variable:h2(x, variable, B), center)
+    dx_dcenter_ND = numdiff(lambda variable:x_star(variable), center)
+
+    set_tol = 1e-4
+
+    assert np.linalg.norm(grad_x_ND - grad_x(x, lambda_, center, A, B)) < set_tol
+    assert np.linalg.norm(hessian_center_x_ND - hessian_center_x(x, lambda_, center, A, B)) < set_tol
+    assert np.linalg.norm(hessian_xx_ND - hessian_xx(x, lambda_, center, A, B)) < set_tol
+    assert np.linalg.norm(dh1_dx_ND - dh1_dx(x, center, A)) < set_tol
+    assert np.linalg.norm(dh2_dx_ND - dh2_dx(x, center, B)) < set_tol
+    assert np.linalg.norm(dh1_dcenter_ND - dh1_dcenter(x, center, A)) < set_tol
+    assert np.linalg.norm(dh2_dcenter_ND - dh2_dcenter(x, center, B)) < set_tol
+    assert  np.linalg.norm(func_lambda_annalytical(center)- func_lambda(center)) < set_tol
+    assert  np.linalg.norm(func_distance_annalytical(center)- func_distance(center)) < set_tol
+    assert  np.linalg.norm(dx_dcenter_ND - dx_dcenter(center) ) < set_tol #! TODO: Understand why it fails
+
+    ## HPPFCL COMPARISON 
+    assert  np.linalg.norm(get_closest_points_hppfcl(center) - x_star(center) ) < set_tol 
+    assert np.linalg.norm(func_lambda_annalytical(center) - func_lambda_hppfcl(center, A, B)) < set_tol
+    assert np.linalg.norm(func_distance_annalytical(center) - get_distance_hppfcl(center)) < set_tol
+    assert np.linalg.norm(dx_dcenter_ND - dx_dcenter_hppfcl(center) ) < set_tol #! TODO: Understand why it fails
+    
+    ## COMPARISON HPPFCL - COMPUTE FUNCTION
