@@ -206,7 +206,6 @@ def dx_dcenter(center):
     N_matrix[6, :] = dh1_do_
     N_matrix[7, :] = dh2_do_
 
-    print(f"np.linalg.cond(M_matrix + 1e-9 * np.eye(8)): {np.linalg.cond(M_matrix + 1e-6 * np.eye(8))}")
 
     dy = - np.linalg.solve(M_matrix + 1e-6* np.eye(8), N_matrix)
 
@@ -235,7 +234,6 @@ def dx_dcenter_hppfcl(center):
     N_matrix[:6, :] = hessian_center_x(x, lambda_, center,A, B)
     N_matrix[6, :] = dh1_do_
     N_matrix[7, :] = dh2_do_
-    print(f"np.linalg.cond(M_matrix + 1e-9 * np.eye(8)): {np.linalg.cond(M_matrix + 1e-9 * np.eye(8))}")
     
     dy = - np.linalg.solve(M_matrix + 1e-9 * np.eye(8), N_matrix)
 
@@ -312,7 +310,6 @@ def compute_closest_points_hppfcl(shape1, shape2, placement1, placement2):
     req.gjk_tolerance = 1e-9
     res = hppfcl.DistanceResult()
     _ = hppfcl.distance(shape1, placement1, shape2, placement2, req, res)
-    print(f"The distance between the closest points is : {_}")
     cp1 = res.getNearestPoint1()
     cp2 = res.getNearestPoint2()
     return np.concatenate((cp1, cp2))
@@ -373,7 +370,6 @@ def compute_dx_dcenter(shape1, shape2, placement1, placement2):
     N_matrix[6, :] = dh1_do_
     N_matrix[7, :] = dh2_do_
     
-    print(f"np.linalg.cond(M_matrix + 1e-9 * np.eye(8)): {np.linalg.cond(M_matrix + 1e-9 * np.eye(8))}")
     dy = - np.linalg.solve(M_matrix + 1e-9 * np.eye(8), N_matrix)
 
     return dy[:6]
