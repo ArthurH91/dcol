@@ -4,7 +4,7 @@ import numpy as np
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist, ddist_dt, cp, dX_dq, dddist_dt_dq
+from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq
 
 
 class TestDistOpt(unittest.TestCase):
@@ -51,10 +51,26 @@ class TestDistOpt(unittest.TestCase):
         cls.dddist_dt_dq_ND = numdiff(
             lambda variable: ddist_dt(cls.rmodel, cls.cmodel, variable), cls.x
         )[:7]
+        
+        cls.ddist_dq_ND = numdiff(
+            lambda variable: dist(cls.rmodel, cls.cmodel, variable), cls.q
+        )
+
+    def test_ddist_dq(cls):
+
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.ddist_dq_ND
+                - ddist_dq(cls.rmodel, cls.cmodel,cls.q)
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dq_ND}\n and the value computed is : \n {ddist_dq(cls.rmodel, cls.cmodel,cls.q)}",
+        )
+
 
     def test_ddist_dt(cls):
 
-        print(f"tkzlzf: {cls.ddist_dt_ND}")
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.ddist_dt_ND
