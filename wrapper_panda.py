@@ -127,7 +127,34 @@ class PandaWrapper:
         cmodel.addGeometryObject(elips_geom)
         return cmodel
     
-    
+    def add_ellips(
+        self,
+        cmodel,
+        placement_obs=pin.SE3.Identity(),
+        dim_obs=[1, 1, 1],
+        placement_rob=pin.SE3.Identity(),
+        dim_rob=[1, 1, 1],
+    ):
+
+        # Creating the ellipsoids
+        cmodel = self.add_ellipsoid(
+            cmodel, "obstacle", placement=placement_obs, dim=dim_obs
+        )
+        assert cmodel.existGeometryName("panda2_link7_sc_5")
+        cmodel = self.add_ellipsoid(
+            cmodel,
+            "ellips_rob",
+            parentFrame=cmodel.geometryObjects[
+                cmodel.getGeometryId("panda2_link7_sc_5")
+            ].parentFrame,
+            parentJoint=cmodel.geometryObjects[
+                cmodel.getGeometryId("panda2_link7_sc_5")
+            ].parentJoint,
+            placement=placement_rob,
+            dim=dim_rob,
+        )
+        return cmodel
+
 
 if __name__ == "__main__":
     from pinocchio import visualize
