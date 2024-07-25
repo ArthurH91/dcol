@@ -144,7 +144,7 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
 
 def dX_dq(rmodel, cmodel, q):
 
-    not_center = False
+    not_center = True
     derivativeComputation = DerivativeComputation()
     # Creating the data models
     rdata = rmodel.createData()
@@ -194,22 +194,10 @@ def dX_dq(rmodel, cmodel, q):
     if not_center:
         f1p1 = cp1 - rdata.oMf[shape1.parentFrame].translation
         f2p2 = cp2 - rdata.oMf[shape2.parentFrame].translation
-
-        ## Transport the jacobian of frame 1 into the jacobian associated to cp1
-        # Vector from frame 1 center to p1
-
-        # The following 2 lines are the easiest way to understand the transformation
-        # although not the most efficient way to compute it.
         f1Mp1 = pin.SE3(np.eye(3), f1p1)
         jacobian1 = f1Mp1.actionInverse @ jacobian1
-
-        ## Transport the jacobian of frame 2 into the jacobian associated to cp2
-        # Vector from frame 2 center to p2
-        # The following 2 lines are the easiest way to understand the transformation
-        # although not the most efficient way to compute it.
         f2Mp2 = pin.SE3(np.eye(3), f2p2)
         jacobian2 = f2Mp2.actionInverse @ jacobian2
-        j = np.concatenate((jacobian1[:3], jacobian2[:3]))
 
     dx1_dcenter1 = dx_dcenter[:3, :3]
     dx1_dcenter2 = dx_dcenter[:3, 3:]
@@ -223,3 +211,49 @@ def dX_dq(rmodel, cmodel, q):
     dx2_dq = (dcenter1_dq.T @ dx2_dcenter1).T + (dcenter2_dq.T @ dx2_dcenter2).T
 
     return np.concatenate((dx1_dq, dx2_dq))
+
+
+
+def dddist_dt_dq(rmodel, cmodel, x):
+    
+    q = x[:rmodel.nq]
+    v = x[rmodel.nq:]
+    
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.computeForwardKinematicsDerivatives(rmodel, rdata, q, v, a=np.zeros(rmodel.nq))
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+
+    d = dist(rmodel, cmodel, q)
+    closest_points = cp(rmodel, cmodel, q)
+    cp1 = closest_points[:3]
+    cp2 = closest_points[3:]
+    
+    f1p1 = cp1 - rdata.oMf[shape1.parentFrame].translation
+    f2p2 = cp2 - rdata.oMf[shape2.parentFrame].translation
+
+    dx_dq = dX_dq(rmodel, cmodel, q)
+    dx1_dq = dx_dq[:3]
+    dx2_dq = dx_dq[3:]
+    
+    dv1_dq = pin.getFrameVelocityDerivatives(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)[0][:3]
+    dv2_dq = pin.getFrameVelocityDerivatives(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)[0][:3]
+
+    v1 = pin.getFrameVelocity(rmodel,rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+    v2 = pin.getFrameVelocity(rmodel,rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+    
+    v1 = np.reshape(v1, (3,1))
+    v2 = np.reshape(v2, (3,1))
+
+    # return 1/d * ((dv1_dq - dv2_dq).T @ (f1p1 - f2p2), (rmodel.nq, 1)) + (dx1_dq - dx2_dq).T @ (v1 - v2)
+    return 1/d * np.reshape((dv1_dq - dv2_dq).T @ (cp1 - cp2), (rmodel.nq, 1)) + (dx1_dq - dx2_dq).T @ (v1 - v2)

@@ -1,19 +1,18 @@
 import unittest
 import numpy as np
 
-import hppfcl
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist, ddist_dt, cp, dX_dq
+from distance_derivatives import dist, ddist_dt, cp, dX_dq, dddist_dt_dq
 
 
 class TestDistOpt(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        
-         # OBS CONSTANTS
+
+        # OBS CONSTANTS
         cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
         cls.DIM_OBS = [0.1, 0.1, 0.4]
 
@@ -34,46 +33,72 @@ class TestDistOpt(unittest.TestCase):
         )
         cls.q = pin.randomConfiguration(cls.rmodel)
         cls.v = pin.randomConfiguration(cls.rmodel)
+        cls.x = np.concatenate((cls.q, cls.v))
 
-        cls.ddist_dt_ND = finite_diff_time(cls.q,cls.v,
+        cls.ddist_dt_ND = finite_diff_time(
+            cls.q,
+            cls.v,
             lambda variable: dist(
-                cls.rmodel, cls.cmodel, variable,),
+                cls.rmodel,
+                cls.cmodel,
+                variable,
+            ),
         )
-        
-        cls.dx_dq_ND = numdiff_matrix(lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q)
-        
-        
+
+        cls.dx_dq_ND = finite_difference_jacobian(
+            lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q
+        )
+        cls.dddist_dt_dq_ND = finite_difference_jacobian(
+            lambda variable: dddist_dt_dq(cls.rmodel, cls.cmodel, variable), cls.x
+        )[:7]
+
     def test_ddist_dt(cls):
-        
+
         cls.assertAlmostEqual(
-            np.linalg.norm(cls.ddist_dt_ND - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))), 0, places=2, msg="The time derivative of the distance is not equal to the one from numdiff"
+            np.linalg.norm(
+                cls.ddist_dt_ND
+                - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+            ),
+            0,
+            places=2,
+            msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
         )
 
     def test_dcp1_dq(cls):
-        
+
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dx_dq_ND.T[:3] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]
             ),
             0,
             places=2,
-            msg="The derivative of the closest point 1 w.r.t q is not equal to the one from numdiff"
+            msg=f"The derivative of the closest point 1 w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dx_dq_ND.T[:3]}\n and the value computed is : \n {dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]}",
         )
-        
+
     def test_dcp2_dq(cls):
-        
+
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dx_dq_ND.T[3:] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]
             ),
             0,
             places=2,
-            msg="The derivative of the closest point 2 w.r.t q is not equal to the one from numdiff"
+            msg=f"The derivative of the closest point 2 w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dx_dq_ND.T[3:]}\n and the value computed is : \n {dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]}",
+        )
+
+    def test_dddist_dt_dq(cls):
+
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dddist_dt_dq_ND - dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)
+            ),
+            0,
+            places=2,
+            msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)}",
         )
 
 
-
-def finite_diff_time(q, v,f, h=1e-6):
+def finite_diff_time(q, v, f, h=1e-6):
     return (f(q + h * v) - f(q)) / h
 
 
@@ -83,17 +108,39 @@ def numdiff(f, q, h=1e-6):
     for i in range(len(q)):
         e = np.zeros(len(q))
         e[i] = h
-        j_diff[i] = ((f(q + e) - fx) / e[i])
+        j_diff[i] = (f(q + e) - fx) / e[i]
     return j_diff
 
+def finite_difference_jacobian(f, x, h = 1e-6):
+    n_input = len(x)  # size of the input
+    fx = f(x)  # evaluate function at x
+    n_output = len(fx)  # size of the output
+    
+    jacobian = np.zeros((n_input, n_output))
+    
+    for i in range(n_input):
+        x_forward = np.copy(x)
+        x_backward = np.copy(x)
+        
+        x_forward[i] += h
+        x_backward[i] -= h
+        
+        f_forward = f(x_forward).flatten()
+        f_backward = f(x_backward).flatten()
+        
+        jacobian[i, :] = (f_forward - f_backward) / (2 * h)
+    
+    return jacobian
+
 def numdiff_matrix(f, q, h=1e-6):
-    fx = f(q)
-    j_diff = np.zeros((len(q), len(fx)))
+    fx = f(q).reshape(len(f(q)))
+    j_diff = np.zeros((len(fx),len(q)))
     for i in range(len(q)):
         e = np.zeros(len(q))
         e[i] = h
-        j_diff[i,:] = ((f(q + e) - fx) / e[i]).reshape((6,))
+        j_diff[i, :] = ((f(q + e).reshape(len(fx)) - fx) / e[i])
     return j_diff
+
 
 if __name__ == "__main__":
     unittest.main()
