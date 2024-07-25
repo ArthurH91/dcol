@@ -4,8 +4,9 @@ import numpy as np
 import hppfcl
 import pinocchio as pin
 
-from distOpt import EllipsoidOptimization
+from ellipsoid_optimization import EllipsoidOptimization
 from derivatives_computation import DerivativeComputation
+
 
 class TestDistOpt(unittest.TestCase):
 
@@ -359,16 +360,13 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(
                 cls.dx_dcenter_ND
                 - cls.derivativeComputation.compute_dx_dcenter_hppfcl(
-                    cls.shape1, cls.shape2, cls.centerA, cls.centerB, cls.A, cls.B
+                    cls.shape1, cls.shape2, cls.centerA, cls.centerB
                 )
             ),
             0,
             places=2,
             msg="The value of the matrix is not equal to the one found in the optimization problem.",
         )
-        
-    
-
 
 def numdiff(f, inX, h=1e-6):
     # Computes the Jacobian of a function returning a 1d array

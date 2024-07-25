@@ -102,10 +102,18 @@ class DerivativeComputation:
         H[3:, 3:] = -lambda_2 * B
 
         return H
+    
+    def compute_dx_dcenter_hppfcl(self, shape1, shape2, placement1, placement2):
 
-    def compute_dx_dcenter_hppfcl(self, shape1, shape2, placement1, placement2, A, B):
-
-
+        R_A = placement1.rotation.T
+        R_B = placement2.rotation.T
+        
+        A_ = np.diag([1 / r**2 for r in shape1.radii])
+        B_ = np.diag([1 / r**2 for r in shape2.radii])
+        
+        A = R_A.T @ A_ @ R_A
+        B = R_B.T @ B_ @ R_B
+        
         center = np.concatenate((placement1.translation, placement2.translation))
 
         x = self.compute_closest_points_hppfcl(shape1, shape2, placement1, placement2)
