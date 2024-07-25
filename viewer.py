@@ -30,7 +30,6 @@ def add_sphere_to_viewer(viz, sphere_name, radius, position, color=[1, 0, 0, 1])
         # Check if the sphere already exists
         _ = viz.viewer[sphere_name]
         viz.viewer[sphere_name].delete()
-        print(f"Sphere '{sphere_name}' already exists. Deleting the existing sphere.")
     except KeyError:
         # Sphere does not exist
         pass

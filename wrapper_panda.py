@@ -127,7 +127,7 @@ class PandaWrapper:
         cmodel.addGeometryObject(elips_geom)
         return cmodel
     
-    def add_ellips(
+    def add_2_ellips(
         self,
         cmodel,
         placement_obs=pin.SE3.Identity(),
