@@ -48,12 +48,13 @@ class TestDistOpt(unittest.TestCase):
         cls.dx_dq_ND = finite_difference_jacobian(
             lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q
         )
-        cls.dddist_dt_dq_ND = finite_difference_jacobian(
-            lambda variable: dddist_dt_dq(cls.rmodel, cls.cmodel, variable), cls.x
+        cls.dddist_dt_dq_ND = numdiff(
+            lambda variable: ddist_dt(cls.rmodel, cls.cmodel, variable), cls.x
         )[:7]
 
     def test_ddist_dt(cls):
 
+        print(f"tkzlzf: {cls.ddist_dt_ND}")
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.ddist_dt_ND
@@ -88,13 +89,14 @@ class TestDistOpt(unittest.TestCase):
 
     def test_dddist_dt_dq(cls):
 
+        
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dddist_dt_dq_ND - dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)
+                cls.dddist_dt_dq_ND - (dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)).reshape(7,)
             ),
             0,
             places=2,
-            msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)}",
+            msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
         )
 
 
@@ -111,34 +113,36 @@ def numdiff(f, q, h=1e-6):
         j_diff[i] = (f(q + e) - fx) / e[i]
     return j_diff
 
-def finite_difference_jacobian(f, x, h = 1e-6):
+
+def finite_difference_jacobian(f, x, h=1e-6):
     n_input = len(x)  # size of the input
     fx = f(x)  # evaluate function at x
     n_output = len(fx)  # size of the output
-    
+
     jacobian = np.zeros((n_input, n_output))
-    
+
     for i in range(n_input):
         x_forward = np.copy(x)
         x_backward = np.copy(x)
-        
+
         x_forward[i] += h
         x_backward[i] -= h
-        
+
         f_forward = f(x_forward).flatten()
         f_backward = f(x_backward).flatten()
-        
+
         jacobian[i, :] = (f_forward - f_backward) / (2 * h)
-    
+
     return jacobian
+
 
 def numdiff_matrix(f, q, h=1e-6):
     fx = f(q).reshape(len(f(q)))
-    j_diff = np.zeros((len(fx),len(q)))
+    j_diff = np.zeros((len(fx), len(q)))
     for i in range(len(q)):
         e = np.zeros(len(q))
         e[i] = h
-        j_diff[i, :] = ((f(q + e).reshape(len(fx)) - fx) / e[i])
+        j_diff[i, :] = (f(q + e).reshape(len(fx)) - fx) / e[i]
     return j_diff
 
 
