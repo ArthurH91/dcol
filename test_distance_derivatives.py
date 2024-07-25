@@ -24,7 +24,7 @@ class TestDistOpt(unittest.TestCase):
         robot_wrapper = PandaWrapper()
         cls.rmodel, cls.cmodel, _ = robot_wrapper()
 
-        cls.cmodel = robot_wrapper.add_ellips(
+        cls.cmodel = robot_wrapper.add_2_ellips(
             cls.cmodel,
             placement_obs=cls.PLACEMENT_OBS,
             dim_obs=cls.DIM_OBS,
