@@ -5,7 +5,7 @@ import hppfcl
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist, ddist_dt
+from distance_derivatives import dist, ddist_dt, cp, dX_dq
 
 
 class TestDistOpt(unittest.TestCase):
@@ -40,14 +40,38 @@ class TestDistOpt(unittest.TestCase):
                 cls.rmodel, cls.cmodel, variable,),
         )
         
+        cls.dx_dq_ND = numdiff_matrix(lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q)
+        
+        
     def test_ddist_dt(cls):
         
         cls.assertAlmostEqual(
             np.linalg.norm(cls.ddist_dt_ND - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))), 0, places=2, msg="The time derivative of the distance is not equal to the one from numdiff"
         )
 
+    def test_dcp1_dq(cls):
+        
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dx_dq_ND.T[:3] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]
+            ),
+            0,
+            places=2,
+            msg="The derivative of the closest point 1 w.r.t q is not equal to the one from numdiff"
+        )
+        
+    def test_dcp2_dq(cls):
+        
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dx_dq_ND.T[3:] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]
+            ),
+            0,
+            places=2,
+            msg="The derivative of the closest point 2 w.r.t q is not equal to the one from numdiff"
+        )
 
-    
+
 
 def finite_diff_time(q, v,f, h=1e-6):
     return (f(q + h * v) - f(q)) / h
