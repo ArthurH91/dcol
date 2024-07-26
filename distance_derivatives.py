@@ -145,7 +145,9 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
 
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.framesForwardKinematics(rmodel, rdata, q)
 
+    pin.forwardKinematics(rmodel, rdata, q, v)
     # Poses and geometries of the shapes
     shape1_id = cmodel.getGeometryId("obstacle")
     shape1 = cmodel.geometryObjects[shape1_id]
@@ -158,6 +160,9 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
     cp1 = closest_points[:3]
     cp2 = closest_points[3:]
 
+    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    
     jacobian1 = pin.computeFrameJacobian(
         rmodel,
         rdata,
@@ -190,12 +195,59 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
     # although not the most efficient way to compute it.
     f2Mp2 = pin.SE3(np.eye(3), f2p2)
     jacobian2 = f2Mp2.actionInverse @ jacobian2
-
+# 
     n = (cp2 - cp1).T / distance
 
     d_dot = np.dot((jacobian2[:3] @ v - jacobian1[:3] @ v).T, n)
+    # d_dot = np.dot((v2.linear- v1.linear).T, n)
+    V1 = jacobian1[:3] @ v
+    
+    R = rdata.oMf[shape1.parentFrame].rotation
+    V1_ND = R.T @ numdiff_matrix(lambda variable: f(rmodel, cmodel, variable), q)
+    
+    
+    print("-------------------------------------------")
+    print(f"V1_ND: {V1_ND}")
+    print(f"v1 = {v1.linear}, analytical : {jacobian1[:3] @ v}")
+    print(f"v2 = {v2.linear}, analytical : {jacobian2[:3] @ v}")
 
     return d_dot
+
+def f(rmodel, cmodel, q):
+
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.framesForwardKinematics(rmodel, rdata, q)
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    distance = dist(rmodel, cmodel, q)
+    closest_points = cp(rmodel, cmodel, q)
+    cp1 = closest_points[:3]
+    cp2 = closest_points[3:]
+    
+    R = rdata.oMf[shape1.parentFrame].rotation
+    
+    return (R @ (cp1 - rdata.oMf[shape1.parentFrame].translation)).reshape(3,)
+
+
+def numdiff_matrix(f, q, h=1e-6):
+    fx = f(q).reshape(3,)
+    j_diff = np.zeros((3, 7))
+    for i in range(len(q)):
+        e = np.zeros(len(q))
+        e[i] = h
+        j_diff[:, i] = (f(q + e).reshape(len(fx)) - fx) / e[i]
+    return j_diff
+
 
 
 def dX_dq(rmodel, cmodel, q):
@@ -317,7 +369,51 @@ def dddist_dt_dq(rmodel, cmodel, x):
     v1 = np.reshape(v1, (3, 1))
     v2 = np.reshape(v2, (3, 1))
 
-    # return 1/d * ((dv1_dq - dv2_dq).T @ (f1p1 - f2p2), (rmodel.nq, 1)) + (dx1_dq - dx2_dq).T @ (v1 - v2)
-    return 1 / d * np.reshape((dv1_dq - dv2_dq).T @ (cp1 - cp2), (rmodel.nq, 1)) + (
-        dx1_dq - dx2_dq
-    ).T @ (v1 - v2)
+    return 1/d * np.reshape((dv1_dq - dv2_dq).T @ (f1p1 - f2p2), (rmodel.nq, 1)) + (dx1_dq - dx2_dq).T @ (v1 - v2)
+    # return 1 / d * np.reshape((dv1_dq - dv2_dq).T @ (cp1 - cp2), (rmodel.nq, 1)) + (
+    #     dx1_dq - dx2_dq
+    # ).T @ (v1 - v2)
+
+
+def h1(rmodel, cmodel, center, cp1,  q):
+    
+     # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    
+     # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+    
+    R = rdata.oMf[shape1.parentFrame].rotation
+
+    radii1 = shape1.geometry.radii
+    D = np.diag([1 / r**2 for r in radii1])
+    
+    return (cp1 - center) @ R.T @ D @ R @ (cp1 - center) 
+
+def h2(rmodel, cmodel,center, cp2,  q):
+    
+     # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    
+     # Poses and geometries of the shapes
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+    
+    R = rdata.oMf[shape2.parentFrame].rotation
+
+    radii = shape2.geometry.radii
+    D = np.diag([1 / r**2 for r in radii])
+    
+    return (cp2 - center) @ R.T @ D @ R @ (cp2 - center) 

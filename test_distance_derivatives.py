@@ -4,7 +4,7 @@ import numpy as np
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq
+from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2
 
 
 class TestDistOpt(unittest.TestCase):
@@ -14,12 +14,12 @@ class TestDistOpt(unittest.TestCase):
 
         # OBS CONSTANTS
         cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
-        cls.DIM_OBS = [0.1, 0.1, 0.4]
+        cls.DIM_OBS = [50.1, 010.1, 20.1]
 
         # ELLIPS ON THE ROBOT
         cls.PLACEMENT_ROB = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
-        cls.DIM_ROB = [0.2, 0.1, 0.2]
-
+        cls.DIM_ROB = [50.1, 010.1, 20.1]
+        
         # Creating the robot
         robot_wrapper = PandaWrapper()
         cls.rmodel, cls.cmodel, _ = robot_wrapper()
@@ -45,6 +45,7 @@ class TestDistOpt(unittest.TestCase):
             ),
         )
 
+        cls.cp = cp(cls.rmodel, cls.cmodel, cls.q)
         cls.dx_dq_ND = finite_difference_jacobian(
             lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q
         )
@@ -55,6 +56,14 @@ class TestDistOpt(unittest.TestCase):
         cls.ddist_dq_ND = numdiff(
             lambda variable: dist(cls.rmodel, cls.cmodel, variable), cls.q
         )
+        
+        cls.dh1_dq_ND = numdiff(
+            lambda variable: h1(cls.rmodel, cls.cmodel,np.array([0, 0, 2]), cls.cp[:3] ,variable), cls.q
+        )
+        cls.dh2_dq_ND = numdiff(
+            lambda variable: h2(cls.rmodel,cls.cmodel,np.array([0, 0, 2]),cls.cp[3:] ,variable), cls.q
+        )
+
 
     def test_ddist_dq(cls):
 
@@ -77,7 +86,7 @@ class TestDistOpt(unittest.TestCase):
                 - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
             ),
             0,
-            places=2,
+            places=4,
             msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
         )
 
@@ -115,12 +124,25 @@ class TestDistOpt(unittest.TestCase):
             msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
         )
 
+    def test_dh1_dq(cls):
+        
+        # cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.dddist_dt_dq_ND - dh1_dq(cls.rmodel, cls.cmodel, cls.q)
+    #         ),
+    #         0,
+    #         places=2,
+    #         msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
+    #     )
+        print(np.linalg.norm(cls.dh1_dq_ND))
+        print(np.linalg.norm(cls.dh2_dq_ND))
+
 
 def finite_diff_time(q, v, f, h=1e-6):
     return (f(q + h * v) - f(q)) / h
 
 
-def numdiff(f, q, h=1e-6):
+def numdiff(f, q, h=1e-4):
     j_diff = np.zeros(len(q))
     fx = f(q)
     for i in range(len(q)):

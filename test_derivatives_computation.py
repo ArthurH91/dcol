@@ -19,8 +19,8 @@ class TestDistOpt(unittest.TestCase):
         cls.center = np.concatenate((cls.x0_1, cls.x0_2))
 
         # Define the radii for the ellipsoids
-        cls.radiiA = [1, 2, 1]
-        cls.radiiB = [1, 2, 1]
+        cls.radiiA = [1, 1, 1]
+        cls.radiiB = [1, 1, 1]
 
         cls.shape1 = hppfcl.Ellipsoid(*cls.radiiA)
         cls.shape2 = hppfcl.Ellipsoid(*cls.radiiB)
