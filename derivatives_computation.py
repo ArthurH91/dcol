@@ -1,3 +1,5 @@
+### This file defines a class used for the derivation of the movement of the closest points across the boundaries of the ellipsoids.
+
 import numpy as np
 import hppfcl
 

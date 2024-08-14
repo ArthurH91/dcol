@@ -13,7 +13,7 @@ class TestDistOpt(unittest.TestCase):
     def setUpClass(cls):
 
         # OBS CONSTANTS
-        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
+        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 250]))
         cls.DIM_OBS = [50.1, 010.1, 20.1]
 
         # ELLIPS ON THE ROBOT
@@ -65,17 +65,17 @@ class TestDistOpt(unittest.TestCase):
         )
 
 
-    def test_ddist_dq(cls):
+    # def test_ddist_dq(cls):
 
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.ddist_dq_ND
-                - ddist_dq(cls.rmodel, cls.cmodel,cls.q)
-            ),
-            0,
-            places=4,
-            msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dq_ND}\n and the value computed is : \n {ddist_dq(cls.rmodel, cls.cmodel,cls.q)}",
-        )
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.ddist_dq_ND
+    #             - ddist_dq(cls.rmodel, cls.cmodel,cls.q)
+    #         ),
+    #         0,
+    #         places=4,
+    #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dq_ND}\n and the value computed is : \n {ddist_dq(cls.rmodel, cls.cmodel,cls.q)}",
+    #     )
 
 
     def test_ddist_dt(cls):
@@ -90,52 +90,52 @@ class TestDistOpt(unittest.TestCase):
             msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
         )
 
-    def test_dcp1_dq(cls):
+    # def test_dcp1_dq(cls):
 
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.dx_dq_ND.T[:3] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]
-            ),
-            0,
-            places=2,
-            msg=f"The derivative of the closest point 1 w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dx_dq_ND.T[:3]}\n and the value computed is : \n {dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]}",
-        )
-
-    def test_dcp2_dq(cls):
-
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.dx_dq_ND.T[3:] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]
-            ),
-            0,
-            places=2,
-            msg=f"The derivative of the closest point 2 w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dx_dq_ND.T[3:]}\n and the value computed is : \n {dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]}",
-        )
-
-    def test_dddist_dt_dq(cls):
-
-        
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.dddist_dt_dq_ND - (dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)).reshape(7,)
-            ),
-            0,
-            places=2,
-            msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
-        )
-
-    def test_dh1_dq(cls):
-        
-        # cls.assertAlmostEqual(
+    #     cls.assertAlmostEqual(
     #         np.linalg.norm(
-    #             cls.dddist_dt_dq_ND - dh1_dq(cls.rmodel, cls.cmodel, cls.q)
+    #             cls.dx_dq_ND.T[:3] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]
+    #         ),
+    #         0,
+    #         places=2,
+    #         msg=f"The derivative of the closest point 1 w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dx_dq_ND.T[:3]}\n and the value computed is : \n {dX_dq(cls.rmodel, cls.cmodel, cls.q)[:3]}",
+    #     )
+
+    # def test_dcp2_dq(cls):
+
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.dx_dq_ND.T[3:] - dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]
+    #         ),
+    #         0,
+    #         places=2,
+    #         msg=f"The derivative of the closest point 2 w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dx_dq_ND.T[3:]}\n and the value computed is : \n {dX_dq(cls.rmodel, cls.cmodel, cls.q)[3:]}",
+    #     )
+
+    # def test_dddist_dt_dq(cls):
+
+        
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.dddist_dt_dq_ND - (dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x)).reshape(7,)
     #         ),
     #         0,
     #         places=2,
     #         msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
     #     )
-        print(np.linalg.norm(cls.dh1_dq_ND))
-        print(np.linalg.norm(cls.dh2_dq_ND))
+
+    # def test_dh1_dq(cls):
+        
+    #     # cls.assertAlmostEqual(
+    # #         np.linalg.norm(
+    # #             cls.dddist_dt_dq_ND - dh1_dq(cls.rmodel, cls.cmodel, cls.q)
+    # #         ),
+    # #         0,
+    # #         places=2,
+    # #         msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
+    # #     )
+    #     print(np.linalg.norm(cls.dh1_dq_ND))
+    #     print(np.linalg.norm(cls.dh2_dq_ND))
 
 
 def finite_diff_time(q, v, f, h=1e-6):

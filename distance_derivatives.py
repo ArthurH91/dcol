@@ -1,3 +1,6 @@
+### This file defines all the functions used for the distance computation and its derivatives.
+
+
 import numpy as np
 import pinocchio as pin
 import hppfcl
@@ -6,6 +9,16 @@ from derivatives_computation import DerivativeComputation
 
 
 def dist(rmodel, cmodel, q):
+    """Computing the distance between the two shapes of the robot.
+
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        q (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
@@ -42,6 +55,16 @@ def dist(rmodel, cmodel, q):
 
 
 def cp(rmodel, cmodel, q):
+    """Computing the closest points in each shape "obstacle" and "ellips_rob".
+
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        q (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
@@ -79,7 +102,16 @@ def cp(rmodel, cmodel, q):
 
 
 def ddist_dq(rmodel, cmodel, q):
+    """Computing the derivative of the distance w.r.t. the configuration of the robot.
 
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        q (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
@@ -135,7 +167,13 @@ def ddist_dq(rmodel, cmodel, q):
 
 
 def ddist_dt(rmodel, cmodel, x: np.ndarray):
+    """Computing the derivative of the distance w.r.t. time.
 
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        x (np.ndarray): _description_
+    """
     q = x[: rmodel.nq]
     v = x[rmodel.nq :]
 
@@ -198,45 +236,45 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
 # 
     n = (cp2 - cp1).T / distance
 
-    d_dot = np.dot((jacobian2[:3] @ v - jacobian1[:3] @ v).T, n)
-    # d_dot = np.dot((v2.linear- v1.linear).T, n)
+    # d_dot = np.dot((jacobian2[:3] @ v - jacobian1[:3] @ v).T, n)
+    d_dot = np.dot((v2.linear- v1.linear).T, n)
     V1 = jacobian1[:3] @ v
     
     R = rdata.oMf[shape1.parentFrame].rotation
-    V1_ND = R.T @ numdiff_matrix(lambda variable: f(rmodel, cmodel, variable), q)
+    # V1_ND = R.T @ numdiff_matrix(lambda variable: f(rmodel, cmodel, variable), q)
     
     
     print("-------------------------------------------")
-    print(f"V1_ND: {V1_ND}")
+    # print(f"V1_ND: {V1_ND}")
     print(f"v1 = {v1.linear}, analytical : {jacobian1[:3] @ v}")
     print(f"v2 = {v2.linear}, analytical : {jacobian2[:3] @ v}")
 
     return d_dot
 
-def f(rmodel, cmodel, q):
+# def f(rmodel, cmodel, q):
 
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
+#     # Creating the data models
+#     rdata = rmodel.createData()
+#     cdata = cmodel.createData()
 
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-    # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
+#     # Updating the position of the joints & the geometry objects.
+#     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+#     pin.framesForwardKinematics(rmodel, rdata, q)
+#     # Poses and geometries of the shapes
+#     shape1_id = cmodel.getGeometryId("obstacle")
+#     shape1 = cmodel.geometryObjects[shape1_id]
 
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
+#     shape2_id = cmodel.getGeometryId("ellips_rob")
+#     shape2 = cmodel.geometryObjects[shape2_id]
 
-    distance = dist(rmodel, cmodel, q)
-    closest_points = cp(rmodel, cmodel, q)
-    cp1 = closest_points[:3]
-    cp2 = closest_points[3:]
+#     distance = dist(rmodel, cmodel, q)
+#     closest_points = cp(rmodel, cmodel, q)
+#     cp1 = closest_points[:3]
+#     cp2 = closest_points[3:]
     
-    R = rdata.oMf[shape1.parentFrame].rotation
+#     R = rdata.oMf[shape1.parentFrame].rotation
     
-    return (R @ (cp1 - rdata.oMf[shape1.parentFrame].translation)).reshape(3,)
+#     return (R @ (cp1 - rdata.oMf[shape1.parentFrame].translation)).reshape(3,)
 
 
 def numdiff_matrix(f, q, h=1e-6):

@@ -1,3 +1,5 @@
+### This file is to verify the that the analitical values of the dual variables are the right one, compared with CasADi.
+
 import contextlib
 import os
 import numpy as np
