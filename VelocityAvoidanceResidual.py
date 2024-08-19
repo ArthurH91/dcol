@@ -1,3 +1,5 @@
+import numpy as np
+
 import crocoddyl
 import pinocchio as pin
 
@@ -65,11 +67,43 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         
         self.alpha = 10
 
+    def numdiff_ddist_dt(self, x):
+        q = x[:self._nq]
+        v = x[self._nq:]
+        
+        d = lambda config: dist(self._pinocchio, self._geom_model,config)
+        return finite_diff_time(q, v, d)
+    
+    def f(self, x):
+        ddist_dt_val = self.numdiff_ddist_dt(x)
+        
+        di = 1e-1
+        ds = 1e-3
+        ksi = 1
+        
+        d = dist(self._pinocchio, self._geom_model, x[:self._nq])
+        # print(f"d : {d}")
+        # print(f"ctr : {ddist_dt_val + ksi * (d - ds)/(di-ds)}")
+        return ddist_dt_val + ksi * (d - ds)/(di-ds)
     def calc(self, data, x, u=None):
-        data.r[:] = ddist_dt(self._pinocchio, self._geom_model, x) - self.alpha * dist(self._pinocchio, self._geom_model, x[:self._pinocchio.nq])
-
+        data.r[:] = self.f(x)
+        
     def calcDiff(self, data, x, u=None):
-        data.Rx[: self._nq] = dddist_dt_dq(self._pinocchio, self._geom_model, x).flatten() - self.alpha * ddist_dq(self._pinocchio, self._geom_model, x[:self._pinocchio.nq])
+        nd = numdiff(self.f, x)
+        
+        # print(f"nd : {nd}")
+        data.Rx[:] = nd
+        
+def finite_diff_time(q, v, f, h=1e-6):
+    return (f(q + h * v) - f(q)) / h
 
+def numdiff(f, q, h=1e-4):
+    j_diff = np.zeros(len(q))
+    fx = f(q)
+    for i in range(len(q)):
+        e = np.zeros(len(q))
+        e[i] = h
+        j_diff[i] = (f(q + e) - fx) / e[i]
+    return j_diff
 if __name__ == "__main__":
     pass

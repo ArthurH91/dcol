@@ -81,42 +81,6 @@ class OCPPandaReachingColWithMultipleCol:
         # Making sure that the frame exists
         assert self._endeff_frame <= len(self._rmodel.frames)
 
-        # Collision pair id
-        k = 0
-
-        # Making sure that the pair of collision exists
-        assert k <= len(self._cmodel.collisionPairs)
-
-        # Collision pair
-        self._collisionPair = self._cmodel.collisionPairs[k]
-
-        # Geometry ID of the shape 1 of collision pair
-        self._id_shape1 = self._collisionPair.first
-
-        # Making sure that the frame exists
-        assert self._id_shape1 <= len(self._cmodel.geometryObjects)
-
-        # Geometry object shape 1
-        self._shape1 = self._cmodel.geometryObjects[self._id_shape1]
-
-        # Shape 1 parent joint
-        self._shape1_parentJoint = self._shape1.parentJoint
-
-        # Geometry ID of the shape 2 of collision pair
-        self._id_shape2 = self._collisionPair.second
-
-        # Making sure that the frame exists
-        assert self._id_shape2 <= len(self._cmodel.geometryObjects)
-
-        # Geometry object shape 2
-        self._shape2 = self._cmodel.geometryObjects[self._id_shape2]
-
-        # Shape 2 parent joint
-        self._shape2_parentJoint = self._shape2.parentJoint
-
-        # Checking that shape 1 is belonging to the robot & shape 2 is the obstacle
-        assert "obstacle" not in self._shape1.name
-        assert "obstacle" in self._shape2.name
 
     def __call__(self) -> Any:
         "Setting up croccodyl OCP"
@@ -180,41 +144,16 @@ class OCPPandaReachingColWithMultipleCol:
                 "col_term_" + str(col_idx), constraint
             )
 
-        # Bounds costs
-
-        # Cost for self-collision
-        maxfloat = sys.float_info.max
-        xlb = np.concatenate(
-            [
-                self._rmodel.lowerPositionLimit,
-                -maxfloat * np.ones(self._state.nv),
-            ]
-        )
-        xub = np.concatenate(
-            [
-                self._rmodel.upperPositionLimit,
-                maxfloat * np.ones(self._state.nv),
-            ]
-        )
-        bounds = crocoddyl.ActivationBounds(xlb, xub, 1.0)
-        xLimitResidual = crocoddyl.ResidualModelState(
-            self._state, self._x0, self._actuation.nu
-        )
-        xLimitActivation = crocoddyl.ActivationModelQuadraticBarrier(bounds)
-        crocoddyl.CostModelResidual(self._state, xLimitActivation, xLimitResidual)
-
         # Adding costs to the models
         self._runningCostModel.addCost("stateReg", xRegCost, self._WEIGHT_xREG)
         self._runningCostModel.addCost("ctrlRegGrav", uRegCost, self._WEIGHT_uREG)
         self._runningCostModel.addCost(
             "gripperPoseRM", goalTrackingCost, self._WEIGHT_GRIPPER_POSE
         )
-        # self._runningCostModel.addCost("limitCostRM", limitCost, self._WEIGHT_LIMIT)
         self._terminalCostModel.addCost("stateReg", xRegCost, self._WEIGHT_xREG_TERM)
         self._terminalCostModel.addCost(
             "gripperPose", goalTrackingCost, self._WEIGHT_GRIPPER_POSE_TERM
         )
-        # self._terminalCostModel.addCost("limitCost", limitCost, self._WEIGHT_LIMIT)
 
         # Create Differential Action Model (DAM), i.e. continuous dynamics and cost functions
         self._running_DAM = crocoddyl.DifferentialActionModelFreeFwdDynamics(
@@ -230,15 +169,21 @@ class OCPPandaReachingColWithMultipleCol:
             self._terminalConstraintModelManager,
         )
         
-        self._running_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(self._running_DAM, True)
-        self._terminal_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(self._terminal_DAM, True)
+        # self._running_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(self._running_DAM, True)
+        # self._terminal_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(self._terminal_DAM, True)
 
         # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
+        # self._runningModel = crocoddyl.IntegratedActionModelEuler(
+        #     self._running_DAM_ND, self._dt
+        # )
+        # self._terminalModel = crocoddyl.IntegratedActionModelEuler(
+        #     self._terminal_DAM_ND, 0.0
+        # )
         self._runningModel = crocoddyl.IntegratedActionModelEuler(
-            self._running_DAM_ND, self._dt
+            self._running_DAM, self._dt
         )
         self._terminalModel = crocoddyl.IntegratedActionModelEuler(
-            self._terminal_DAM_ND, 0.0
+            self._terminal_DAM, 0.0
         )
 
         self._runningModel.differential.armature = np.array(

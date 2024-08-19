@@ -9,15 +9,15 @@ from OCP import OCPPandaReachingColWithMultipleCol
 # Number of nodes of the trajectory
 T = 10
 # Time step between each node
-dt = 0.001
+dt = 0.01
 
 # OBS CONSTANTS
-PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
-DIM_OBS = [0.1, 0.1, 0.4]
+PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, -0.2, 1.5]))
+DIM_OBS = [0.1, 0.1, 0.1]
 
 # ELLIPS ON THE ROBOT
 PLACEMENT_ROB = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
-DIM_ROB = [0.2, 0.1, 0.2]
+DIM_ROB =  [0.1, 0.1, 0.1]
 
 # Creating the robot
 robot_wrapper = PandaWrapper()
@@ -55,7 +55,9 @@ problem = OCPPandaReachingColWithMultipleCol(
     T,
     dt,
     x0,
-    callbacks=True
+    callbacks=True,
+    WEIGHT_GRIPPER_POSE=100,
+    WEIGHT_GRIPPER_POSE_TERM=500
 )
 ddp = problem()
 
