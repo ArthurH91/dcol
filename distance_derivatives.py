@@ -100,6 +100,58 @@ def cp(rmodel, cmodel, q):
     cp2 = res.getNearestPoint2()
     return np.concatenate((cp1, cp2))
 
+def A(rmodel, cmodel, q):
+    """Returns the matrices A1 and A2 that are the matrices defining the geometry and the rotation of the two ellipsoids.
+    A_i = R_i.T @ D_i @ R_i. Where R_i is the rotation matrix of the ellipsoid and D_i is the radii matrix.
+
+    Returns:
+        tuple: A1, A2
+    """
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    # Getting the geometry of the shape 1
+    shape1_geom = shape1.geometry
+    # Getting the radii of the shape 1
+    shape1_radii = shape1_geom.radii
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    # Doing the same for the second shape.
+    shape2_geom = shape2.geometry
+    shape2_placement = cdata.oMg[shape2_id]
+    shape2_radii = shape2_geom.radii
+
+    D1 = np.array(
+            [
+                [1 / shape1_radii[0] ** 2, 0, 0],
+                [0, 1 / shape1_radii[1] ** 2, 0],
+                [0, 0, 1 / shape1_radii[2] ** 2],
+            ]
+        )
+    D2 = np.array(
+            [
+                [1 / shape2_radii[0] ** 2, 0, 0],
+                [0, 1 / shape2_radii[1] ** 2, 0],
+                [0, 0, 1 / shape2_radii[2] ** 2],
+            ]
+        )
+    A1 = shape1_placement.rotation.T @ D1 @ shape1_placement.rotation
+    A2 = shape2_placement.rotation.T @ D2 @ shape2_placement.rotation
+
+    return A1, A2
+def dA_dt(rmodel, cmodel, x):
+    
 
 def ddist_dq(rmodel, cmodel, q):
     """Computing the derivative of the distance w.r.t. the configuration of the robot.
