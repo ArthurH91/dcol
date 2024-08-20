@@ -200,81 +200,11 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
 
     v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
     v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-    
-    jacobian1 = pin.computeFrameJacobian(
-        rmodel,
-        rdata,
-        q,
-        shape1.parentFrame,
-        pin.LOCAL_WORLD_ALIGNED,
-    )
 
-    jacobian2 = pin.computeFrameJacobian(
-        rmodel,
-        rdata,
-        q,
-        shape2.parentFrame,
-        pin.LOCAL_WORLD_ALIGNED,
-    )
-
-    ## Transport the jacobian of frame 1 into the jacobian associated to cp1
-    # Vector from frame 1 center to p1
-
-    f1p1 = cp1 - rdata.oMf[shape1.parentFrame].translation
-    # The following 2 lines are the easiest way to understand the transformation
-    # although not the most efficient way to compute it.
-    f1Mp1 = pin.SE3(np.eye(3), f1p1)
-    jacobian1 = f1Mp1.actionInverse @ jacobian1
-
-    ## Transport the jacobian of frame 2 into the jacobian associated to cp2
-    # Vector from frame 2 center to p2
-    f2p2 = cp2 - rdata.oMf[shape2.parentFrame].translation
-    # The following 2 lines are the easiest way to understand the transformation
-    # although not the most efficient way to compute it.
-    f2Mp2 = pin.SE3(np.eye(3), f2p2)
-    jacobian2 = f2Mp2.actionInverse @ jacobian2
-# 
     n = (cp2 - cp1).T / distance
 
-    # d_dot = np.dot((jacobian2[:3] @ v - jacobian1[:3] @ v).T, n)
     d_dot = np.dot((v2.linear- v1.linear).T, n)
-    V1 = jacobian1[:3] @ v
-    
-    R = rdata.oMf[shape1.parentFrame].rotation
-    # V1_ND = R.T @ numdiff_matrix(lambda variable: f(rmodel, cmodel, variable), q)
-    
-    if verbose:
-        print("-------------------------------------------")
-        # print(f"V1_ND: {V1_ND}")
-        print(f"v1 = {v1.linear}, analytical : {jacobian1[:3] @ v}")
-        print(f"v2 = {v2.linear}, analytical : {jacobian2[:3] @ v}")
-
     return d_dot
-
-# def f(rmodel, cmodel, q):
-
-#     # Creating the data models
-#     rdata = rmodel.createData()
-#     cdata = cmodel.createData()
-
-#     # Updating the position of the joints & the geometry objects.
-#     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-#     pin.framesForwardKinematics(rmodel, rdata, q)
-#     # Poses and geometries of the shapes
-#     shape1_id = cmodel.getGeometryId("obstacle")
-#     shape1 = cmodel.geometryObjects[shape1_id]
-
-#     shape2_id = cmodel.getGeometryId("ellips_rob")
-#     shape2 = cmodel.geometryObjects[shape2_id]
-
-#     distance = dist(rmodel, cmodel, q)
-#     closest_points = cp(rmodel, cmodel, q)
-#     cp1 = closest_points[:3]
-#     cp2 = closest_points[3:]
-    
-#     R = rdata.oMf[shape1.parentFrame].rotation
-    
-#     return (R @ (cp1 - rdata.oMf[shape1.parentFrame].translation)).reshape(3,)
 
 
 def numdiff_matrix(f, q, h=1e-6):
