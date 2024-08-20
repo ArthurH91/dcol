@@ -166,7 +166,7 @@ def ddist_dq(rmodel, cmodel, q):
     return (cp1 - cp2).T / distance @ (jacobian1[:3] - jacobian2[:3])
 
 
-def ddist_dt(rmodel, cmodel, x: np.ndarray):
+def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
     """Computing the derivative of the distance w.r.t. time.
 
     Args:
@@ -243,11 +243,11 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
     R = rdata.oMf[shape1.parentFrame].rotation
     # V1_ND = R.T @ numdiff_matrix(lambda variable: f(rmodel, cmodel, variable), q)
     
-    
-    print("-------------------------------------------")
-    # print(f"V1_ND: {V1_ND}")
-    print(f"v1 = {v1.linear}, analytical : {jacobian1[:3] @ v}")
-    print(f"v2 = {v2.linear}, analytical : {jacobian2[:3] @ v}")
+    if verbose:
+        print("-------------------------------------------")
+        # print(f"V1_ND: {V1_ND}")
+        print(f"v1 = {v1.linear}, analytical : {jacobian1[:3] @ v}")
+        print(f"v2 = {v2.linear}, analytical : {jacobian2[:3] @ v}")
 
     return d_dot
 
