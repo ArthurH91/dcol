@@ -120,16 +120,16 @@ class TestDistOpt(unittest.TestCase):
     #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
     #     )
         
-    # def test_dA_dt(cls):
-    #     cls.assertAlmostEqual(
-    #         np.linalg.norm(
-    #             cls.A_dot_ND
-    #             - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
-    #         ),
-    #         0,
-    #         places=4,
-    #         msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
-    #     )
+    def test_dA_dt(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.A_dot_ND
+                - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+        )
         
     def test_dR1_dt(cls):
         cls.assertAlmostEqual(

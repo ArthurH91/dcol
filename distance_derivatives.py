@@ -247,7 +247,8 @@ def dA_dt(rmodel, cmodel, x):
 
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-
+    pin.framesForwardKinematics(rmodel, rdata, q)
+    pin.forwardKinematics(rmodel, rdata, q, v)
     # Poses and geometries of the shapes
     shape1_id = cmodel.getGeometryId("obstacle")
     shape1 = cmodel.geometryObjects[shape1_id]
@@ -268,31 +269,28 @@ def dA_dt(rmodel, cmodel, x):
     
     R1 = shape1_placement.rotation
     R2 = shape2_placement.rotation
-    w1 = pin.log3(R1)
-    w2 = pin.log3(R2)
-
-    alpha1, beta1, gamma1 = 1/shape1_radii
-    alpha2, beta2, gamma2 = 1/shape2_radii
-
-    S1 = np.array([
-        [0, (beta1 - alpha1) * w1[2], (alpha1 - gamma1) * w1[1]],
-        [(beta1 - alpha1) * w1[2], 0, (gamma1 - beta1) * w1[0]],
-        [(alpha1 - gamma1) * w1[1], (gamma1 - beta1) * w1[0], 0] 
-    ])
     
-    S2 = np.array([
-        [0, (beta2 - alpha2) * w2[2], (alpha2 - gamma2) * w2[1]],
-        [(beta2 - alpha2) * w2[2], 0, (gamma2 - beta2) * w2[0]],
-        [(alpha2 - gamma2) * w2[1], (gamma2 - beta2) * w2[0], 0] 
-    ])
+    D1 = np.array(
+            [
+                [1 / shape1_radii[0] ** 2, 0, 0],
+                [0, 1 / shape1_radii[1] ** 2, 0],
+                [0, 0, 1 / shape1_radii[2] ** 2],
+            ]
+        )
+    D2 = np.array(
+            [
+                [1 / shape2_radii[0] ** 2, 0, 0],
+                [0, 1 / shape2_radii[1] ** 2, 0],
+                [0, 0, 1 / shape2_radii[2] ** 2],
+            ]
+        )
 
-    A1_dot =  R1.T @ S1 @ R1
-    A2_dot = R2.T @ S2 @ R2
-    
-    print(A1_dot)
-    print(A2_dot)
+    R1_dot = dR1_dt(rmodel, cmodel, x)
+    R2_dot = dR2_dt(rmodel, cmodel, x)
+
+    A1_dot = R1_dot.T @ D1 @ R1 + R1.T @ D1 @ R1_dot
+    A2_dot = R2_dot.T @ D2 @ R2 + R2.T @ D2 @ R2_dot
     return np.concatenate((A1_dot, A2_dot))
-
 
 def ddist_dq(rmodel, cmodel, q):
     """Computing the derivative of the distance w.r.t. the configuration of the robot.
