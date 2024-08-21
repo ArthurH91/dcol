@@ -104,6 +104,11 @@ def A(rmodel, cmodel, q):
     """Returns the matrices A1 and A2 that are the matrices defining the geometry and the rotation of the two ellipsoids.
     A_i = R_i.T @ D_i @ R_i. Where R_i is the rotation matrix of the ellipsoid and D_i is the radii matrix.
 
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        q (_type_): _description_
+
     Returns:
         tuple: A1, A2
     """
@@ -150,8 +155,62 @@ def A(rmodel, cmodel, q):
     A2 = shape2_placement.rotation.T @ D2 @ shape2_placement.rotation
 
     return A1, A2
+
 def dA_dt(rmodel, cmodel, x):
     
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+    
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    # Getting the geometry of the shape 1
+    shape1_geom = shape1.geometry
+    # Getting the radii of the shape 1
+    shape1_radii = shape1_geom.radii
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    # Doing the same for the second shape.
+    shape2_geom = shape2.geometry
+    shape2_placement = cdata.oMg[shape2_id]
+    shape2_radii = shape2_geom.radii
+    
+    R1 = shape1_placement.rotation
+    R2 = shape2_placement.rotation
+    w1 = pin.log3(R1)
+    w2 = pin.log3(R2)
+
+    alpha1, beta1, gamma1 = 1/shape1_radii
+    alpha2, beta2, gamma2 = 1/shape2_radii
+
+    S1 = np.array([
+        [0, (beta1 - alpha1) * w1[2], (alpha1 - gamma1) * w1[1]],
+        [(beta1 - alpha1) * w1[2], 0, (gamma1 - beta1) * w1[0]],
+        [(alpha1 - gamma1) * w1[1], (gamma1 - beta1) * w1[0], 0] 
+    ])
+    
+    S2 = np.array([
+        [0, (beta2 - alpha2) * w2[2], (alpha2 - gamma2) * w2[1]],
+        [(beta2 - alpha2) * w2[2], 0, (gamma2 - beta2) * w2[0]],
+        [(alpha2 - gamma2) * w2[1], (gamma2 - beta2) * w2[0], 0] 
+    ])
+
+    A1_dot =  R1.T @ S1 @ R1
+    A2_dot = R2.T @ S2 @ R2
+    
+    return A1_dot, A2_dot
+
 
 def ddist_dq(rmodel, cmodel, q):
     """Computing the derivative of the distance w.r.t. the configuration of the robot.
