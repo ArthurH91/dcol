@@ -292,6 +292,64 @@ def dA_dt(rmodel, cmodel, x):
     A2_dot = R2_dot.T @ D2 @ R2 + R2.T @ D2 @ R2_dot
     return np.concatenate((A1_dot, A2_dot))
 
+
+def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
+    """Computing the derivative of the distance w.r.t. time.
+
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        x (np.ndarray): _description_
+    """
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.framesForwardKinematics(rmodel, rdata, q)
+
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    # Doing the same for the second shape.
+    shape2_geom = shape2.geometry
+    shape2_placement = cdata.oMg[shape2_id]
+    
+    distance = dist(rmodel, cmodel, q)
+    closest_points = cp(rmodel, cmodel, q)
+    x1 = closest_points[:3]
+    x2 = closest_points[3:]
+
+    c1 = shape1_placement.translation
+    c2 = shape2_placement.translation
+
+    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+
+    A_val = A(rmodel, cmodel,q)
+    A1 = A_val[:3,:]
+    A2 = A_val[3:,:]
+    
+    A_dot = dA_dt(rmodel, cmodel, x)
+    A1_dot = A_dot[:3,:]
+    A2_dot = A_dot[3:,:]
+
+    n = (x2 - x1).T / distance
+    vc1 = v1.linear
+    vc2 = v2.linear
+    d_dot = np.dot((vc2 - vc1 + (1/2) * np.linalg.pinv(A1) @  (x1 - c1) @ A1_dot - (1/2) * np.linalg.pinv(A2) @  (x2 - c2) @ A2_dot ),n)
+    return d_dot
+
 def ddist_dq(rmodel, cmodel, q):
     """Computing the derivative of the distance w.r.t. the configuration of the robot.
 
@@ -356,46 +414,6 @@ def ddist_dq(rmodel, cmodel, q):
     jacobian2 = f2Mp2.actionInverse @ jacobian2
     return (cp1 - cp2).T / distance @ (jacobian1[:3] - jacobian2[:3])
 
-
-def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
-    """Computing the derivative of the distance w.r.t. time.
-
-    Args:
-        rmodel (_type_): _description_
-        cmodel (_type_): _description_
-        x (np.ndarray): _description_
-    """
-    q = x[: rmodel.nq]
-    v = x[rmodel.nq :]
-
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
-
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
-    pin.forwardKinematics(rmodel, rdata, q, v)
-    # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
-
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
-
-    distance = dist(rmodel, cmodel, q)
-    closest_points = cp(rmodel, cmodel, q)
-    cp1 = closest_points[:3]
-    cp2 = closest_points[3:]
-
-    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-
-    n = (cp2 - cp1).T / distance
-
-    d_dot = np.dot((v2.linear- v1.linear).T, n)
-    return d_dot
 
 
 def numdiff_matrix(f, q, h=1e-6):

@@ -79,9 +79,9 @@ class TestDistOpt(unittest.TestCase):
         cls.dx_dq_ND = finite_difference_jacobian(
             lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q
         )
-        cls.dddist_dt_dq_ND = numdiff(
-            lambda variable: ddist_dt(cls.rmodel, cls.cmodel, variable), cls.x
-        )[:7]
+        # cls.dddist_dt_dq_ND = numdiff(
+        #     lambda variable: ddist_dt(cls.rmodel, cls.cmodel, variable), cls.x
+        # )[:7]
         
         cls.ddist_dq_ND = numdiff(
             lambda variable: dist(cls.rmodel, cls.cmodel, variable), cls.q
@@ -94,31 +94,16 @@ class TestDistOpt(unittest.TestCase):
             lambda variable: h2(cls.rmodel,cls.cmodel,np.array([0, 0, 2]),cls.cp[3:] ,variable), cls.q
         )
 
-
-    # def test_ddist_dq(cls):
-
-    #     cls.assertAlmostEqual(
-    #         np.linalg.norm(
-    #             cls.ddist_dq_ND
-    #             - ddist_dq(cls.rmodel, cls.cmodel,cls.q)
-    #         ),
-    #         0,
-    #         places=4,
-    #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dq_ND}\n and the value computed is : \n {ddist_dq(cls.rmodel, cls.cmodel,cls.q)}",
-    #     )
-
-
-    # def test_ddist_dt(cls):
-
-    #     cls.assertAlmostEqual(
-    #         np.linalg.norm(
-    #             cls.ddist_dt_ND
-    #             - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
-    #         ),
-    #         0,
-    #         places=4,
-    #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
-    #     )
+    def test_ddist_dt(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.ddist_dt_ND
+                - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+        )
         
     def test_dA_dt(cls):
         cls.assertAlmostEqual(
@@ -153,6 +138,17 @@ class TestDistOpt(unittest.TestCase):
             msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR2_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
         )
         
+    # def test_ddist_dq(cls):
+
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.ddist_dq_ND
+    #             - ddist_dq(cls.rmodel, cls.cmodel,cls.q)
+    #         ),
+    #         0,
+    #         places=4,
+    #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dq_ND}\n and the value computed is : \n {ddist_dq(cls.rmodel, cls.cmodel,cls.q)}",
+    #     )
     # def test_dcp1_dq(cls):
 
     #     cls.assertAlmostEqual(
@@ -187,7 +183,7 @@ class TestDistOpt(unittest.TestCase):
     #         msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
     #     )
 
-    def test_dh1_dq(cls):
+    # def test_dh1_dq(cls):
         
         # cls.assertAlmostEqual(
     #         np.linalg.norm(
@@ -197,8 +193,8 @@ class TestDistOpt(unittest.TestCase):
     #         places=2,
     #         msg=f"The derivative of the collision velocity w.r.t q is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.dddist_dt_dq_ND}\n and the value computed is : \n {dddist_dt_dq(cls.rmodel, cls.cmodel, cls.x).reshape(7,)}",
     #     )
-        print(np.linalg.norm(cls.dh1_dq_ND))
-        print(np.linalg.norm(cls.dh2_dq_ND))
+        # print(np.linalg.norm(cls.dh1_dq_ND))
+        # print(np.linalg.norm(cls.dh2_dq_ND))
 
 
 
