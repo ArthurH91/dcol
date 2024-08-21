@@ -176,14 +176,13 @@ def R2(rmodel, cmodel, q):
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
     # Poses and geometries of the shapes
-    shape2_id = cmodel.getGeometryId("obstacle")
+    shape2_id = cmodel.getGeometryId("ellips_rob")
     # Getting its pose in the world reference
     shape2_placement = cdata.oMg[shape2_id]
     return shape2_placement.rotation
 
 def dR1_dt(rmodel, cmodel, x):
-    
-        
+           
     q = x[: rmodel.nq]
     v = x[rmodel.nq :]
     
@@ -207,6 +206,35 @@ def dR1_dt(rmodel, cmodel, x):
     w1x = pin.skew(v1.angular)
     
     return w1x @ R1
+
+
+def dR2_dt(rmodel, cmodel, x):
+           
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+    
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.framesForwardKinematics(rmodel, rdata, q)
+
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    # Poses and geometries of the shapes
+    shape2_id = cmodel.getGeometryId("ellips_rob")
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    # Getting its pose in the world reference
+    R2 = cdata.oMg[shape2_id].rotation
+    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+
+    w2x = pin.skew(v2.angular)
+    
+    return w2x @ R2
+
+
 
 def dA_dt(rmodel, cmodel, x):
     
