@@ -154,7 +154,59 @@ def A(rmodel, cmodel, q):
     A1 = shape1_placement.rotation.T @ D1 @ shape1_placement.rotation
     A2 = shape2_placement.rotation.T @ D2 @ shape2_placement.rotation
 
-    return A1, A2
+    return np.concatenate((A1, A2))
+
+def R1(rmodel, cmodel, q):
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    # Getting its pose in the world reference
+    shape1_placement = cdata.oMg[shape1_id]
+    return shape1_placement.rotation
+
+def R2(rmodel, cmodel, q):
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    # Poses and geometries of the shapes
+    shape2_id = cmodel.getGeometryId("obstacle")
+    # Getting its pose in the world reference
+    shape2_placement = cdata.oMg[shape2_id]
+    return shape2_placement.rotation
+
+def dR1_dt(rmodel, cmodel, x):
+    
+        
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+    
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.framesForwardKinematics(rmodel, rdata, q)
+
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    # Poses and geometries of the shapes
+    shape1_id = cmodel.getGeometryId("obstacle")
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    # Getting its pose in the world reference
+    R1 = cdata.oMg[shape1_id].rotation
+    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+
+    w1x = pin.skew(v1.angular)
+    
+    return w1x @ R1
 
 def dA_dt(rmodel, cmodel, x):
     
@@ -209,7 +261,9 @@ def dA_dt(rmodel, cmodel, x):
     A1_dot =  R1.T @ S1 @ R1
     A2_dot = R2.T @ S2 @ R2
     
-    return A1_dot, A2_dot
+    print(A1_dot)
+    print(A2_dot)
+    return np.concatenate((A1_dot, A2_dot))
 
 
 def ddist_dq(rmodel, cmodel, q):
