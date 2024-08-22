@@ -105,12 +105,16 @@ def R(rmodel, cmodel, q, shape_name):
     rdata = rmodel.createData()
     cdata = cmodel.createData()
 
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    # Updating the position of the joints & the geometry objects
+    pin.forwardKinematics(rmodel, rdata, q)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
     # Poses and geometries of the shapes
     shape_id = cmodel.getGeometryId(shape_name)
     # Getting its pose in the world reference
     shape_placement = cdata.oMg[shape_id]
+    # ? Error in the rotation matrix ? Missing initial rotation ?
+    # iMg = rdata.oMi[cmodel.geometryObjects[shape_id].parentJoint].actInv(shape_placement)
+    # return iMg.rotation
     return shape_placement.rotation
 
 
@@ -124,9 +128,9 @@ def dR_dt(rmodel, cmodel, x, shape_name):
     cdata = cmodel.createData()
 
     # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
     pin.forwardKinematics(rmodel, rdata, q, v)
     pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
 
     # Poses and geometries of the shapes
     shape_id = cmodel.getGeometryId(shape_name)
@@ -141,7 +145,7 @@ def dR_dt(rmodel, cmodel, x, shape_name):
     return wx @ R
 
 
-def A(rmodel, cmodel, q, shape_name):
+def A(rmodel, cmodel, q, shape_name, get_inverse = False):
     """Returns the matrix A that is the matrix defining the geometry and the rotation of the ellipsoid.
     A = R.T @ D @ R. Where R is the rotation matrix of the ellipsoid and D is the radii matrix.
 
@@ -168,6 +172,17 @@ def A(rmodel, cmodel, q, shape_name):
             ]
         )
     A = Rot.T @ D @ Rot
+
+    if get_inverse:
+        Dinv = np.array(
+            [
+                [shape_radii[0] ** 2, 0, 0],
+                [0, shape_radii[1] ** 2, 0],
+                [0, 0, shape_radii[2] ** 2],
+            ]
+        )
+        Ainv = Rot.T @ Dinv @ Rot
+        return A, Ainv
 
     return A
 
@@ -212,44 +227,53 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
 
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
     pin.forwardKinematics(rmodel, rdata, q, v)
-    # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
+    pin.updateFramePlacements(rmodel, rdata)
 
-    shape2_id = cmodel.getGeometryId("ellips_rob")
+    # Poses and geometries of the shapes
+    shape1_name = "obstacle"
+    shape1_id = cmodel.getGeometryId(shape1_name)
+    shape1 = cmodel.geometryObjects[shape1_id]
+    shape1_placement = cdata.oMg[shape1_id] # Get shape pose in world frame
+
+    shape2_name = "ellips_rob"
+    shape2_id = cmodel.getGeometryId(shape2_name)
     shape2 = cmodel.geometryObjects[shape2_id]
-    # Getting its pose in the world reference
-    shape1_placement = cdata.oMg[shape1_id]
-    # Doing the same for the second shape.
-    shape2_geom = shape2.geometry
-    shape2_placement = cdata.oMg[shape2_id]
-    
+    shape2_placement = cdata.oMg[shape2_id] # Get shape pose in world frame
+
+    # Get distance between the two shapes and closest points
     distance = dist(rmodel, cmodel, q)
+    print("distance", distance)
     closest_points = cp(rmodel, cmodel, q)
     x1 = closest_points[:3]
     x2 = closest_points[3:]
 
+    # Get position and velocity of centers of the shapes
     c1 = shape1_placement.translation
     c2 = shape2_placement.translation
 
     v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
     v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
 
-    A_val = A(rmodel, cmodel,q)
-    A1 = A_val[:3,:]
-    A2 = A_val[3:,:]
+    # Get shape geometry and rotation variation
+    A1, A1_inv = A(rmodel, cmodel, q, shape_name=shape1_name, get_inverse=True)
+    A2, A2_inv = A(rmodel, cmodel, q, shape_name=shape2_name, get_inverse=True)
     
-    A_dot = dA_dt(rmodel, cmodel, x)
-    A1_dot = A_dot[:3,:]
-    A2_dot = A_dot[3:,:]
+    dA1_dt = dA_dt(rmodel, cmodel, x, shape_name=shape1_name)
+    dA2_dt = dA_dt(rmodel, cmodel, x, shape_name=shape2_name)
 
-    n = (x2 - x1).T / distance
+    # Compute the derivative of the distance
     vc1 = v1.linear
     vc2 = v2.linear
-    d_dot = np.dot((vc2 - vc1 + (1/2) * np.linalg.pinv(A1) @  (x1 - c1) @ A1_dot - (1/2) * np.linalg.pinv(A2) @  (x2 - c2) @ A2_dot ),n)
+    d_dot = (x1 - x2).T @ (vc1 - vc2) \
+        + (1/2) * (x1 - c1).T @ dA1_dt @ A1_inv @ (x1 - x2) \
+        - (1/2) * (x2 - c2).T @ dA2_dt @ A2_inv @ (x1 - x2)
+    print("d_dot", d_dot)
+    print((x1 - x2).T @ (vc1 - vc2) / distance)
+    print(- (1/2) * (x1 - c1).T @ dA1_dt @ A1_inv @ (x1 - x2) / distance)
+    print((1/2) * (x2 - c2).T @ dA2_dt @ A2_inv @ (x1 - x2) / distance)
+    d_dot = d_dot / distance
+    # d_dot = np.dot((vc2 - vc1 + (1/2) * np.linalg.pinv(A1) @  (x1 - c1) @ dA1_dt - (1/2) * np.linalg.pinv(A2) @  (x2 - c2) @ dA2_dt),n)
     return d_dot
 
 def ddist_dq(rmodel, cmodel, q):

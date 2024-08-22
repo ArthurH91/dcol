@@ -5,7 +5,9 @@ import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
 from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, R, dR_dt, A, dA_dt
+from viewer import create_viewer, add_sphere_to_viewer
 
+pin.seed(np.random.randint(0, 1000))
 
 class TestDistOpt(unittest.TestCase):
 
@@ -22,16 +24,18 @@ class TestDistOpt(unittest.TestCase):
             return A(rmodel, cmodel, x, shape_name="ellips_rob")
 
         # OBS CONSTANTS
-        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 250]))
-        cls.DIM_OBS = [8.1, 9.1, 10.1]
+        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
+        # cls.DIM_OBS = [0.2, .2, .2] # Sphere
+        cls.DIM_OBS = [0.2, .16, .1] # Ellipsoid
 
         # ELLIPS ON THE ROBOT
         cls.PLACEMENT_ROB = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
-        cls.DIM_ROB = [15.1, 12.1, 10.1]
+        cls.DIM_ROB = [.1, .2, .3] # Ellipsoid
+        # cls.DIM_ROB = [10.0, 10.0, 10.0] # Sphere
         
         # Creating the robot
         robot_wrapper = PandaWrapper()
-        cls.rmodel, cls.cmodel, _ = robot_wrapper()
+        cls.rmodel, cls.cmodel, cls.vmodel = robot_wrapper()
 
         cls.cmodel = robot_wrapper.add_2_ellips(
             cls.cmodel,
@@ -40,8 +44,11 @@ class TestDistOpt(unittest.TestCase):
             placement_rob=cls.PLACEMENT_ROB,
             dim_rob=cls.DIM_ROB,
         )
-        cls.q = pin.randomConfiguration(cls.rmodel)
-        cls.v = pin.randomConfiguration(cls.rmodel)
+        # cls.q = pin.randomConfiguration(cls.rmodel)
+        cls.q = pin.neutral(cls.rmodel)
+        # cls.q[0] = 1
+        # cls.v = pin.randomConfiguration(cls.rmodel)
+        cls.v = np.random.random(cls.rmodel.nv)
         cls.x = np.concatenate((cls.q, cls.v))
 
         cls.ddist_dt_ND = finite_diff_time(
@@ -111,16 +118,20 @@ class TestDistOpt(unittest.TestCase):
             lambda variable: h2(cls.rmodel,cls.cmodel,np.array([0, 0, 2]),cls.cp[3:] ,variable), cls.q
         )
 
-    # def test_ddist_dt(cls):
-    #     cls.assertAlmostEqual(
-    #         np.linalg.norm(
-    #             cls.ddist_dt_ND
-    #             - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
-    #         ),
-    #         0,
-    #         places=4,
-    #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
-    #     )
+        viz = create_viewer(cls.rmodel, cls.cmodel, cls.vmodel)
+        viz.display(cls.q)
+
+
+    def test_ddist_dt(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.ddist_dt_ND
+                - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+        )
         
     def test_dR1_dt(cls):
         cls.assertAlmostEqual(
@@ -226,7 +237,7 @@ class TestDistOpt(unittest.TestCase):
 
 
 
-def finite_diff_time(q, v, f, h=1e-6):
+def finite_diff_time(q, v, f, h=1e-8):
     return (f(q + h * v) - f(q)) / h
 
 
