@@ -192,9 +192,9 @@ def dR1_dt(rmodel, cmodel, x):
 
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
     pin.forwardKinematics(rmodel, rdata, q, v)
+    pin.updateFramePlacements(rmodel, rdata)
+
     # Poses and geometries of the shapes
     shape1_id = cmodel.getGeometryId("obstacle")
     shape1 = cmodel.geometryObjects[shape1_id]
@@ -219,9 +219,9 @@ def dR2_dt(rmodel, cmodel, x):
 
     # Updating the position of the joints & the geometry objects.
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
     pin.forwardKinematics(rmodel, rdata, q, v)
+    pin.updateFramePlacements(rmodel, rdata)
+
     # Poses and geometries of the shapes
     shape2_id = cmodel.getGeometryId("ellips_rob")
     shape2 = cmodel.geometryObjects[shape2_id]
