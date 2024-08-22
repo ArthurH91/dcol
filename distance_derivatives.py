@@ -181,7 +181,7 @@ def R2(rmodel, cmodel, q):
     shape2_placement = cdata.oMg[shape2_id]
     return shape2_placement.rotation
 
-def dR1_dt(rmodel, cmodel, x):
+def dR_dt(rmodel, cmodel, x, shape_name):
            
     q = x[: rmodel.nq]
     v = x[rmodel.nq :]
@@ -196,44 +196,16 @@ def dR1_dt(rmodel, cmodel, x):
     pin.updateFramePlacements(rmodel, rdata)
 
     # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
+    shape_id = cmodel.getGeometryId(shape_name)
+    shape = cmodel.geometryObjects[shape_id]
 
     # Getting its pose in the world reference
-    R1 = cdata.oMg[shape1_id].rotation
-    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    R = cdata.oMg[shape_id].rotation
+    v = pin.getFrameVelocity(rmodel, rdata, shape.parentFrame, pin.LOCAL_WORLD_ALIGNED)
 
-    w1x = pin.skew(v1.angular)
+    wx = pin.skew(v.angular)
     
-    return w1x @ R1
-
-
-def dR2_dt(rmodel, cmodel, x):
-           
-    q = x[: rmodel.nq]
-    v = x[rmodel.nq :]
-    
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
-
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.forwardKinematics(rmodel, rdata, q, v)
-    pin.updateFramePlacements(rmodel, rdata)
-
-    # Poses and geometries of the shapes
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
-
-    # Getting its pose in the world reference
-    R2 = cdata.oMg[shape2_id].rotation
-    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-
-    w2x = pin.skew(v2.angular)
-    
-    return w2x @ R2
-
+    return wx @ R
 
 
 def dA_dt(rmodel, cmodel, x):
@@ -285,8 +257,8 @@ def dA_dt(rmodel, cmodel, x):
             ]
         )
 
-    R1_dot = dR1_dt(rmodel, cmodel, x)
-    R2_dot = dR2_dt(rmodel, cmodel, x)
+    R1_dot = dR_dt(rmodel, cmodel, x, shape_name="obstacle")
+    R2_dot = dR_dt(rmodel, cmodel, x, shape_name="ellips_rob")
 
     A1_dot = R1_dot.T @ D1 @ R1 + R1.T @ D1 @ R1_dot
     A2_dot = R2_dot.T @ D2 @ R2 + R2.T @ D2 @ R2_dot

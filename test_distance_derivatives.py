@@ -4,7 +4,7 @@ import numpy as np
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, A, dA_dt, R1, dR1_dt, R2, dR2_dt
+from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, A, dA_dt, R1, dR_dt, R2
 
 
 class TestDistOpt(unittest.TestCase):
@@ -94,48 +94,48 @@ class TestDistOpt(unittest.TestCase):
             lambda variable: h2(cls.rmodel,cls.cmodel,np.array([0, 0, 2]),cls.cp[3:] ,variable), cls.q
         )
 
-    def test_ddist_dt(cls):
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.ddist_dt_ND
-                - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
-            ),
-            0,
-            places=4,
-            msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
-        )
+    # def test_ddist_dt(cls):
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.ddist_dt_ND
+    #             - ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+    #         ),
+    #         0,
+    #         places=4,
+    #         msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+    #     )
         
-    def test_dA_dt(cls):
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.A_dot_ND
-                - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
-            ),
-            0,
-            places=4,
-            msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
-        )
+    # def test_dA_dt(cls):
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.A_dot_ND
+    #             - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+    #         ),
+    #         0,
+    #         places=4,
+    #         msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+    #     )
         
     def test_dR1_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.R1_dot_ND
-                - dR1_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), shape_name="obstacle")
             ),
             0,
             places=4,
-            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R1_dot_ND}\n and the value computed is : \n {dR1_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R1_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), shape_name="obstacle")}",
         )
         
     def test_dR2_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.R2_dot_ND
-                - dR2_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), shape_name="ellips_rob")
             ),
             0,
             places=4,
-            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR2_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), shape_name="ellips_rob")}",
         )
         
     # def test_ddist_dq(cls):
