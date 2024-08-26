@@ -14,9 +14,9 @@ class TestDistOpt(unittest.TestCase):
     def setUpClass(cls):
 
         # Define initial positions for the centers of the two ellipsoids
-        cls.x0_1 = np.random.randn(3)
-        cls.x0_2 = 10 * np.random.randn(3) + 10
-        cls.center = np.concatenate((cls.x0_1, cls.x0_2))
+        cls.c1 = np.random.randn(3)
+        cls.c2 = 10 * np.random.randn(3) + 10
+        cls.center = np.concatenate((cls.c1, cls.c2))
 
         # Define the radii for the ellipsoids
         cls.radiiA = [1, 1, 1]
@@ -26,62 +26,62 @@ class TestDistOpt(unittest.TestCase):
         cls.shape2 = hppfcl.Ellipsoid(*cls.radiiB)
 
         # Construct matrices A and B for ellipsoid constraints
-        A_ = np.diag([1 / r**2 for r in cls.radiiA])
-        B_ = np.diag([1 / r**2 for r in cls.radiiB])
+        D1 = np.diag([1 / r**2 for r in cls.radiiA])
+        D2 = np.diag([1 / r**2 for r in cls.radiiB])
 
         # Generate random rotation matrices using Pinocchio
         cls.R_A = pin.SE3.Random().rotation
         cls.R_B = pin.SE3.Random().rotation
 
         # Calculate rotated matrices
-        cls.A = cls.R_A.T @ A_ @ cls.R_A
-        cls.B = cls.R_B.T @ B_ @ cls.R_B
+        cls.A1 = cls.R_A.T @ D1 @ cls.R_A
+        cls.A2 = cls.R_B.T @ D2 @ cls.R_B
 
         cls.x = np.random.random(6)
         cls.lambda_ = np.random.random(2)
 
         # Define initial positions for the centers of the two ellipsoids
-        x0_1 = np.random.randn(3)
-        x0_2 = 10 * np.random.randn(3) + 10
-        cls.center = np.concatenate((x0_1, x0_2))
+        c1 = np.random.randn(3)
+        c2 = 10 * np.random.randn(3) + 10
+        cls.center = np.concatenate((c1, c2))
 
-        cls.centerA = pin.SE3(rotation=cls.R_A.T, translation=x0_1)
-        cls.centerB = pin.SE3(rotation=cls.R_B.T, translation=x0_2)
+        cls.c1_SE3 = pin.SE3(rotation=cls.R_A.T, translation=c1)
+        cls.c2_SE3 = pin.SE3(rotation=cls.R_B.T, translation=c2)
 
         cls.derivativeComputation = DerivativeComputation()
 
         cls.grad_x_ND = numdiff(
             lambda variable: cls.derivativeComputation.lagrangian(
-                variable, cls.lambda_, cls.center, cls.A, cls.B
+                variable, cls.lambda_, cls.center, cls.A1, cls.A2
             ),
             cls.x,
         )
         cls.hessian_center_x_ND = numdiff(
             lambda variable: cls.derivativeComputation.grad_x(
-                cls.x, cls.lambda_, variable, cls.A, cls.B
+                cls.x, cls.lambda_, variable, cls.A1, cls.A2
             ),
             cls.center,
         )
         cls.hessian_xx_ND = numdiff(
             lambda variable: cls.derivativeComputation.grad_x(
-                variable, cls.lambda_, cls.center, cls.A, cls.B
+                variable, cls.lambda_, cls.center, cls.A1, cls.A2
             ),
             cls.x,
         )
         cls.dh1_dx_ND = numdiff(
-            lambda variable: cls.derivativeComputation.h1(variable, cls.center, cls.A),
+            lambda variable: cls.derivativeComputation.h1(variable, cls.center, cls.A1),
             cls.x,
         )
         cls.dh2_dx_ND = numdiff(
-            lambda variable: cls.derivativeComputation.h2(variable, cls.center, cls.B),
+            lambda variable: cls.derivativeComputation.h2(variable, cls.center, cls.A2),
             cls.x,
         )
         cls.dh1_dcenter_ND = numdiff(
-            lambda variable: cls.derivativeComputation.h1(cls.x, variable, cls.A),
+            lambda variable: cls.derivativeComputation.h1(cls.x, variable, cls.A1),
             cls.center,
         )
         cls.dh2_dcenter_ND = numdiff(
-            lambda variable: cls.derivativeComputation.h2(cls.x, variable, cls.B),
+            lambda variable: cls.derivativeComputation.h2(cls.x, variable, cls.A2),
             cls.center,
         )
         cls.dx_dcenter_ND = numdiff(lambda variable: cls.x_star(variable), cls.center)
@@ -91,14 +91,14 @@ class TestDistOpt(unittest.TestCase):
         center_1 = center[:3]
         center_2 = center[3:]
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(center_1, cls.A, center_2, cls.B)
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
         x1, x2 = qcqp_solver.get_optimal_values()
 
         l1 = (
-            -np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ cls.A @ (x1 - center_1)).item()
+            -np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ cls.A1 @ (x1 - center_1)).item()
         )
-        l2 = np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ cls.B @ (x2 - center_2)).item()
+        l2 = np.linalg.norm(x1 - x2, 2) / ((x1 - x2).T @ cls.A2 @ (x2 - center_2)).item()
         return np.array([l1, l2])
 
     @classmethod
@@ -106,7 +106,7 @@ class TestDistOpt(unittest.TestCase):
         center_1 = center[:3]
         center_2 = center[3:]
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(center_1, cls.A, center_2, cls.B)
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
         x1, x2 = qcqp_solver.get_optimal_values()
 
@@ -117,7 +117,7 @@ class TestDistOpt(unittest.TestCase):
         center_1 = center[:3]
         center_2 = center[3:]
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(center_1, cls.A, center_2, cls.B)
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
         xSol1, xSol2 = qcqp_solver.get_optimal_values()
         return np.concatenate((xSol1, xSol2))
@@ -127,7 +127,7 @@ class TestDistOpt(unittest.TestCase):
         center_1 = center[:3]
         center_2 = center[3:]
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(center_1, cls.A, center_2, cls.B)
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
 
         lambda1, lambda2 = qcqp_solver.get_dual_values()
@@ -139,7 +139,7 @@ class TestDistOpt(unittest.TestCase):
         center_1 = center[:3]
         center_2 = center[3:]
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(center_1, cls.A, center_2, cls.B)
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
         return qcqp_solver.get_minimum_cost()
 
@@ -148,7 +148,7 @@ class TestDistOpt(unittest.TestCase):
         center_1 = center[:3]
         center_2 = center[3:]
         qcqp_solver = EllipsoidOptimization()
-        qcqp_solver.setup_problem(center_1, cls.A, center_2, cls.B)
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
         xSol1, xSol2 = qcqp_solver.get_optimal_values()
         lambda1, lambda2 = qcqp_solver.get_dual_values()
@@ -159,22 +159,22 @@ class TestDistOpt(unittest.TestCase):
         M_matrix = np.zeros((8, 8))
         N_matrix = np.zeros((8, 6))
 
-        dh1_dx_ = cls.derivativeComputation.dh1_dx(x, center, cls.A)
-        dh2_dx_ = cls.derivativeComputation.dh2_dx(x, center, cls.B)
+        dh1_dx_ = cls.derivativeComputation.dh1_dx(x, center, cls.A1)
+        dh2_dx_ = cls.derivativeComputation.dh2_dx(x, center, cls.A2)
 
         M_matrix[:6, :6] = cls.derivativeComputation.hessian_xx(
-            x, lambda_, center, cls.A, cls.B
+            x, lambda_, center, cls.A1, cls.A2
         )
         M_matrix[:6, 6] = dh1_dx_
         M_matrix[:6, 7] = dh2_dx_
         M_matrix[6, :6] = dh1_dx_.T
         M_matrix[7, :6] = dh2_dx_.T
 
-        dh1_do_ = cls.derivativeComputation.dh1_dcenter(x, center, cls.A)
-        dh2_do_ = cls.derivativeComputation.dh2_dcenter(x, center, cls.B)
+        dh1_do_ = cls.derivativeComputation.dh1_dcenter(x, center, cls.A1)
+        dh2_do_ = cls.derivativeComputation.dh2_dcenter(x, center, cls.A2)
 
         N_matrix[:6, :] = cls.derivativeComputation.hessian_center_x(
-            x, lambda_, center, cls.A, cls.B
+            x, lambda_, center, cls.A1, cls.A2
         )
         N_matrix[6, :] = dh1_do_
         N_matrix[7, :] = dh2_do_
@@ -191,7 +191,7 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(
                 cls.grad_x_ND
                 - cls.derivativeComputation.grad_x(
-                    cls.x, cls.lambda_, cls.center, cls.A, cls.B
+                    cls.x, cls.lambda_, cls.center, cls.A1, cls.A2
                 )
             ),
             0,
@@ -206,7 +206,7 @@ class TestDistOpt(unittest.TestCase):
                 np.linalg.norm(
                     cls.hessian_center_x_ND
                     - cls.derivativeComputation.hessian_center_x(
-                        cls.x, cls.lambda_, cls.center, cls.A, cls.B
+                        cls.x, cls.lambda_, cls.center, cls.A1, cls.A2
                     )
                 )
             ),
@@ -221,7 +221,7 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(
                 cls.hessian_xx_ND
                 - cls.derivativeComputation.hessian_xx(
-                    cls.x, cls.lambda_, cls.center, cls.A, cls.B
+                    cls.x, cls.lambda_, cls.center, cls.A1, cls.A2
                 )
             ),
             0,
@@ -234,7 +234,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh1_dx_ND
-                - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A)
+                - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)
             ),
             0,
             places=5,
@@ -246,7 +246,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh2_dx_ND
-                - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.B)
+                - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)
             ),
             0,
             places=5,
@@ -258,7 +258,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh1_dcenter_ND
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A)
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
             ),
             0,
             places=5,
@@ -270,7 +270,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh1_dcenter_ND
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A)
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
             ),
             0,
             places=5,
@@ -318,7 +318,7 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(
                 cls.func_distance_annalytical(cls.center)
                 - cls.derivativeComputation.compute_distance_hppfcl(
-                    cls.shape1, cls.shape2, cls.centerA, cls.centerB
+                    cls.shape1, cls.shape2, cls.c1_SE3, cls.c2_SE3
                 )
             ),
             0,
@@ -331,7 +331,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.derivativeComputation.compute_closest_points_hppfcl(
-                    cls.shape1, cls.shape2, cls.centerA, cls.centerB
+                    cls.shape1, cls.shape2, cls.c1_SE3, cls.c2_SE3
                 )
                 - cls.x_star(cls.center)
             ),
@@ -346,7 +346,7 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(
                 cls.func_lambda_annalytical(cls.center)
                 - cls.derivativeComputation.compute_lambda_hppfcl(
-                    cls.shape1, cls.shape2, cls.centerA, cls.centerB, cls.A, cls.B
+                    cls.shape1, cls.shape2, cls.c1_SE3, cls.c2_SE3, cls.A1, cls.A2
                 )
             ),
             0,
@@ -360,7 +360,7 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(
                 cls.dx_dcenter_ND
                 - cls.derivativeComputation.compute_dx_dcenter_hppfcl(
-                    cls.shape1, cls.shape2, cls.centerA, cls.centerB
+                    cls.shape1, cls.shape2, cls.c1_SE3, cls.c2_SE3
                 )
             ),
             0,
