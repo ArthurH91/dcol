@@ -12,57 +12,59 @@ class TestDistOpt(unittest.TestCase):
     def setUpClass(cls):
 
         # Define initial positions for the centers of the two ellipsoids
-        cls.x0_1 = np.random.randn(3)
-        cls.x0_2 = 10 * np.random.randn(3) + 10
-        cls.center = np.concatenate((cls.x0_1, cls.x0_2))
+        cls.c1 = np.random.randn(3)
+        cls.c2 = 10 * np.random.randn(3) + 10
+        cls.center = np.concatenate((cls.c1, cls.c2))
 
         # Define the radii for the ellipsoids
-        cls.radiiA = [2, 1, 1]
-        cls.radiiB = [1, 1, 2]
+        cls.radiiA = [1, 1, 1]
+        cls.radiiB = [1, 1, 1]
 
         cls.shape1 = hppfcl.Ellipsoid(*cls.radiiA)
         cls.shape2 = hppfcl.Ellipsoid(*cls.radiiB)
 
         # Construct matrices A and B for ellipsoid constraints
-        A_ = np.diag([1 / r**2 for r in cls.radiiA])
-        B_ = np.diag([1 / r**2 for r in cls.radiiB])
+        D1 = np.diag([1 / r**2 for r in cls.radiiA])
+        D2 = np.diag([1 / r**2 for r in cls.radiiB])
 
         # Generate random rotation matrices using Pinocchio
         cls.R_A = pin.SE3.Random().rotation
         cls.R_B = pin.SE3.Random().rotation
 
         # Calculate rotated matrices
-        cls.A = cls.R_A.T @ A_ @ cls.R_A
-        cls.B = cls.R_B.T @ B_ @ cls.R_B
+        cls.A1 = cls.R_A.T @ D1 @ cls.R_A
+        cls.A2 = cls.R_B.T @ D2 @ cls.R_B
 
-        cls.x = np.random.random(6)
-        cls.lambda_ = np.random.random(2)
+        cls.c1_SE3 = pin.SE3(rotation=cls.R_A.T, translation=cls.c1)
+        cls.c2_SE3 = pin.SE3(rotation=cls.R_B.T, translation=cls.c2)
 
-        # Define initial positions for the centers of the two ellipsoids
-        cls.c1 = np.random.randn(3)
-        cls.c2 = 10 * np.random.randn(3) + 10
-        cls.center = np.concatenate((cls.c1, cls.c2))
-
-        cls.centerA = pin.SE3(rotation=cls.R_A.T, translation=cls.c1)
-        cls.centerB = pin.SE3(rotation=cls.R_B.T, translation=cls.c2)
-        
-        
         cls.qcqp_solver = EllipsoidOptimization()
-        cls.qcqp_solver.setup_problem(cls.c1, cls.A, cls.c2, cls.B, cls.R_A, cls.R_B)
+        cls.qcqp_solver.setup_problem(cls.c1, cls.A1, cls.c2, cls.A2, cls.R_A, cls.R_B)
         cls.qcqp_solver.solve_problem(warm_start_primal=np.concatenate((cls.c1, cls.c2)))
 
         cls.x1, cls.x2 = cls.qcqp_solver.get_optimal_values()
         cls.distance = cls.qcqp_solver.get_minimum_cost()
+        cls.cp1, cls.cp2 = cp_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)
         
-        cls.cp1, cls.cp2 = cp_hppfcl(cls.shape1, cls.centerA, cls.shape2, cls.centerB)
-        
-
+        cls.distance_v2 = cls.func_distance_annalytical(cls.center)
+                
+    @classmethod
+    def func_distance_annalytical(cls, center):
+        center_1 = center[:3]
+        center_2 = center[3:]
+        qcqp_solver = EllipsoidOptimization()
+        qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
+        qcqp_solver.solve_problem(warm_start_primal=center)
+        x1, x2 = qcqp_solver.get_optimal_values()
+        return np.linalg.norm(x1 - x2, 2)
+    
+    
     def test_dist(cls):
         cls.assertAlmostEqual(
-            np.linalg.norm(dist_hppfcl(cls.shape1, cls.centerA, cls.shape2, cls.centerB)- cls.distance),
+            np.linalg.norm(dist_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)- cls.distance_v2),
             0,
-            places=4,
-            msg = f"The distance computed from GJK ({dist_hppfcl(cls.shape1, cls.centerA, cls.shape2, cls.centerB)})is not the same as the distance computed with the QCQP ({cls.distance})."
+            places=6,
+            msg = f"The distance computed from GJK ({dist_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)})is not the same as the distance computed with the QCQP ({cls.distance})."
         )
     
     def test_cp1(cls):
