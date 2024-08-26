@@ -1,37 +1,44 @@
 ### This file is to verify the that the analitical values of the dual variables are the right one, compared with CasADi.
-
+import pinocchio as pin
 import contextlib
 import os
 import numpy as np
 import casadi
+from distance_derivatives import dist, cp, h1, h2, R, A
 
 class EllipsoidOptimization:
     """
     Class for setting up and solving an optimization problem for ellipsoids using CasADi.
     """
 
-    def __init__(self, ellipsoid_dim=3):
+    def __init__(self, rmodel, cmodel, shape1_name, shape2_name, ellipsoid_dim=3):
         """
         Initialize the EllipsoidOptimization class.
 
         Args:
             ellipsoid_dim (int, optional): Dimension of the ellipsoids. Defaults to 3.
         """
-        self.ellipsoid_dim = ellipsoid_dim
         self.opti = casadi.Opti()
-        self.x1 = self.opti.variable(self.ellipsoid_dim)
-        self.x2 = self.opti.variable(self.ellipsoid_dim)
         self.totalcost = None
         self.solution = None
+        self.ellipsoid_dim = ellipsoid_dim
+
+        self.rmodel = rmodel
+        self.cmodel = cmodel
+        self.rdata = rmodel.createData()
+        self.cdata = cmodel.createData()
+
+        self.shape1_name = shape1_name
+        self.shape2_name = shape2_name
+        self.shape1_id = cmodel.getGeometryId(shape1_name)
+        self.shape2_id = cmodel.getGeometryId(shape2_name)
+
+        self.x1 = self.opti.variable(ellipsoid_dim)
+        self.x2 = self.opti.variable(ellipsoid_dim)
 
     def setup_problem(
-        self,
-        x0_1=np.ones(3),
-        A=np.array([np.ones((3, 3))]),
-        x0_2=3 * np.ones(3),
-        B=np.array([np.ones((3, 3))]),
-        R_A=None,
-        R_B=None,
+        self, 
+        q,
     ):
         """
         Set up the optimization problem.
@@ -44,21 +51,22 @@ class EllipsoidOptimization:
             R_A (np.ndarray, optional): Rotation matrix for the first ellipsoid. Defaults to None.
             R_B (np.ndarray, optional): Rotation matrix for the second ellipsoid. Defaults to None.
         """
-        # Use identity matrices if rotation matrices are not provided
-        self.R_A = np.eye(self.ellipsoid_dim) if R_A is None else np.array(R_A)
-        self.R_B = np.eye(self.ellipsoid_dim) if R_B is None else np.array(R_B)
 
-        # Calculate rotated matrices
-        self.A_rot = self.R_A.T @ A @ self.R_A
-        self.B_rot = self.R_B.T @ B @ self.R_B
+        pin.forwardKinematics(self.rmodel, self.rdata, q)
+        pin.updateGeometryPlacements(self.rmodel, self.rdata, self.cmodel, self.cdata)        
+        self.c1 = self.cdata.oMg[self.shape1_id].translation # Center of the shapes
+        self.c2 = self.cdata.oMg[self.shape2_id].translation # Center of the shapes
+
+        self.A1 = A(self.rmodel, self.cmodel, q, self.shape1_name)
+        self.A2 = A(self.rmodel, self.cmodel, q, self.shape2_name)
 
         # Define the cost function (distance between closest points)
-        self.totalcost = casadi.norm_2((self.x1 - self.x2)) 
+        self.totalcost = (1/2)*casadi.sumsqr((self.x1 - self.x2)) 
 
         # Define the constraints for the ellipsoids
-        self.con1 = (self.x1 - x0_1).T @ self.A_rot @ (self.x1 - x0_1) / 2 == 1 / 2
+        self.con1 = (self.x1 - self.c1).T @ self.A1 @ (self.x1 - self.c1) / 2 == 1 / 2
         self.opti.subject_to(self.con1)
-        self.con2 = (self.x2 - x0_2).T @ self.B_rot @ (self.x2 - x0_2) / 2 == 1 / 2
+        self.con2 = (self.x2 - self.c2).T @ self.A2 @ (self.x2 - self.c2) / 2 == 1 / 2
         self.opti.subject_to(self.con2)
 
     def solve_problem(self, warm_start_primal=None):
@@ -72,10 +80,11 @@ class EllipsoidOptimization:
 
         self.opti.minimize(self.totalcost)
 
+        if warm_start_primal is None:
+            warm_start_primal = np.concatenate([self.c1, self.c2])
         # Apply warm start values if provided
-        if warm_start_primal is not None:
-            self.opti.set_initial(self.x1, warm_start_primal[: self.ellipsoid_dim])
-            self.opti.set_initial(self.x2, warm_start_primal[self.ellipsoid_dim:])
+        self.opti.set_initial(self.x1, warm_start_primal[: self.ellipsoid_dim])
+        self.opti.set_initial(self.x2, warm_start_primal[self.ellipsoid_dim:])
 
         try:
             with open(os.devnull, 'w') as fnull:

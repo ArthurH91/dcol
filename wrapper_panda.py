@@ -145,10 +145,10 @@ class PandaWrapper:
             cmodel,
             "ellips_rob",
             parentFrame=cmodel.geometryObjects[
-                cmodel.getGeometryId("panda2_link1_sc_0")
+                cmodel.getGeometryId("panda2_link7_sc_0")
             ].parentFrame,
             parentJoint=cmodel.geometryObjects[
-                cmodel.getGeometryId("panda2_link1_sc_0")
+                cmodel.getGeometryId("panda2_link7_sc_0")
             ].parentJoint,
             placement=placement_rob,
             dim=dim_rob,

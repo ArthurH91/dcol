@@ -38,8 +38,9 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.qcqp_solver.solve_problem(warm_start_primal=np.concatenate((self.x0_1, self.x0_2)))
 
         self.x1, self.x2 = self.qcqp_solver.get_optimal_values()
-        self.distance = self.qcqp_solver.get_minimum_cost()
-
+        self.cost = self.qcqp_solver.get_minimum_cost()
+        self.distance = np.linalg.norm(self.x1 - self.x2)
+        
         # Create HPPFCL ellipsoid objects and their corresponding collision objects
         self.ellipsoid_1 = hppfcl.Ellipsoid(
             self.radii_1[0], self.radii_1[1], self.radii_1[2]

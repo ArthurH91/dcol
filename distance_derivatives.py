@@ -42,6 +42,9 @@ def dist(rmodel, cmodel, q):
     shape2_placement = cdata.oMg[shape2_id]
 
     req = hppfcl.DistanceRequest()
+    req.gjk_max_iterations = 20000
+    req.abs_err = 0
+    req.gjk_tolerance = 1e-9
     res = hppfcl.DistanceResult()
     dist = hppfcl.distance(
         shape1_geom,
@@ -112,11 +115,7 @@ def R(rmodel, cmodel, q, shape_name):
     shape_id = cmodel.getGeometryId(shape_name)
     # Getting its pose in the world reference
     shape_placement = cdata.oMg[shape_id]
-    # ? Error in the rotation matrix ? Missing initial rotation ?
-    # iMg = rdata.oMi[cmodel.geometryObjects[shape_id].parentJoint].actInv(shape_placement)
-    # return iMg.rotation
     return shape_placement.rotation
-
 
 def dR_dt(rmodel, cmodel, x, shape_name):
            
@@ -162,6 +161,7 @@ def A(rmodel, cmodel, q, shape_name, get_inverse = False):
     shape_id = cmodel.getGeometryId(shape_name)
     shape = cmodel.geometryObjects[shape_id]
     Rot = R(rmodel, cmodel, q, shape_name=shape_name)
+    Rot = pin.exp3((1/2)*pin.log3(Rot))
     shape_geom = shape.geometry  # Get the frame geom
     shape_radii = shape_geom.radii # Get the radii of shape 1
     D = np.array(
