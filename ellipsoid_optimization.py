@@ -27,9 +27,9 @@ class EllipsoidOptimization:
     def setup_problem(
         self,
         x0_1=np.ones(3),
-        A=np.array([np.ones((3, 3))]),
+        A_1=np.array([np.ones((3, 3))]),
         x0_2=3 * np.ones(3),
-        B=np.array([np.ones((3, 3))]),
+        A_2=np.array([np.ones((3, 3))]),
         R_A=None,
         R_B=None,
     ):
@@ -44,21 +44,14 @@ class EllipsoidOptimization:
             R_A (np.ndarray, optional): Rotation matrix for the first ellipsoid. Defaults to None.
             R_B (np.ndarray, optional): Rotation matrix for the second ellipsoid. Defaults to None.
         """
-        # Use identity matrices if rotation matrices are not provided
-        self.R_A = np.eye(self.ellipsoid_dim) if R_A is None else np.array(R_A)
-        self.R_B = np.eye(self.ellipsoid_dim) if R_B is None else np.array(R_B)
-
-        # Calculate rotated matrices
-        self.A_rot = self.R_A.T @ A @ self.R_A
-        self.B_rot = self.R_B.T @ B @ self.R_B
 
         # Define the cost function (distance between closest points)
         self.totalcost = (1/2) * casadi.sumsqr((self.x1 - self.x2)) 
 
         # Define the constraints for the ellipsoids
-        self.con1 = (self.x1 - x0_1).T @ self.A_rot @ (self.x1 - x0_1) / 2 == 1 / 2
+        self.con1 = (self.x1 - x0_1).T @ A_1 @ (self.x1 - x0_1) / 2 == 1 / 2
         self.opti.subject_to(self.con1)
-        self.con2 = (self.x2 - x0_2).T @ self.B_rot @ (self.x2 - x0_2) / 2 == 1 / 2
+        self.con2 = (self.x2 - x0_2).T @ A_2 @ (self.x2 - x0_2) / 2 == 1 / 2
         self.opti.subject_to(self.con2)
 
     def solve_problem(self, warm_start_primal=None):

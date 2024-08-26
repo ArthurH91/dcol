@@ -17,8 +17,8 @@ class TestDistOpt(unittest.TestCase):
         cls.center = np.concatenate((cls.c1, cls.c2))
 
         # Define the radii for the ellipsoids
-        cls.radiiA = [1, 1, 1]
-        cls.radiiB = [1, 1, 1]
+        cls.radiiA = [1, 2, 1]
+        cls.radiiB = [1, 1, 2]
 
         cls.shape1 = hppfcl.Ellipsoid(*cls.radiiA)
         cls.shape2 = hppfcl.Ellipsoid(*cls.radiiB)
@@ -39,14 +39,19 @@ class TestDistOpt(unittest.TestCase):
         cls.c2_SE3 = pin.SE3(rotation=cls.R_B.T, translation=cls.c2)
 
         cls.qcqp_solver = EllipsoidOptimization()
-        cls.qcqp_solver.setup_problem(cls.c1, cls.A1, cls.c2, cls.A2, cls.R_A, cls.R_B)
+        cls.qcqp_solver.setup_problem(cls.c1, cls.A1, cls.c2, cls.A2)
         cls.qcqp_solver.solve_problem(warm_start_primal=np.concatenate((cls.c1, cls.c2)))
 
         cls.x1, cls.x2 = cls.qcqp_solver.get_optimal_values()
         cls.distance = cls.qcqp_solver.get_minimum_cost()
         cls.cp1, cls.cp2 = cp_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)
-        
+        print(cls.c1)
+        print(cls.c2)
+        print(cls.center)
         cls.distance_v2 = cls.func_distance_annalytical(cls.center)
+        
+        
+        
                 
     @classmethod
     def func_distance_annalytical(cls, center):
@@ -56,6 +61,8 @@ class TestDistOpt(unittest.TestCase):
         qcqp_solver.setup_problem(center_1, cls.A1, center_2, cls.A2)
         qcqp_solver.solve_problem(warm_start_primal=center)
         x1, x2 = qcqp_solver.get_optimal_values()
+        print(x1)
+        print(x2)
         return np.linalg.norm(x1 - x2, 2)
     
     
@@ -64,7 +71,7 @@ class TestDistOpt(unittest.TestCase):
             np.linalg.norm(dist_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)- cls.distance_v2),
             0,
             places=6,
-            msg = f"The distance computed from GJK ({dist_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)})is not the same as the distance computed with the QCQP ({cls.distance})."
+            msg = f"The distance computed from GJK ({dist_hppfcl(cls.shape1, cls.c1_SE3, cls.shape2, cls.c2_SE3)})is not the same as the distance computed with the QCQP ({cls.distance_v2})."
         )
     
     def test_cp1(cls):
