@@ -30,8 +30,6 @@ class EllipsoidOptimization:
         A_1=np.array([np.ones((3, 3))]),
         x0_2=3 * np.ones(3),
         A_2=np.array([np.ones((3, 3))]),
-        R_A=None,
-        R_B=None,
     ):
         """
         Set up the optimization problem.
@@ -41,8 +39,6 @@ class EllipsoidOptimization:
             A (np.ndarray, optional): Shape matrix of the first ellipsoid. Defaults to np.array([np.ones((3, 3))]).
             x0_2 (np.ndarray, optional): Center of the second ellipsoid. Defaults to 3*np.ones(3).
             B (np.ndarray, optional): Shape matrix of the second ellipsoid. Defaults to np.array([np.ones((3, 3))]).
-            R_A (np.ndarray, optional): Rotation matrix for the first ellipsoid. Defaults to None.
-            R_B (np.ndarray, optional): Rotation matrix for the second ellipsoid. Defaults to None.
         """
 
         # Define the cost function (distance between closest points)
