@@ -100,13 +100,64 @@ def cp(rmodel, cmodel, q):
     cp2 = res.getNearestPoint2()
     return np.concatenate((cp1, cp2))
 
+def c(rmodel, cmodel, q):
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.forwardKinematics(rmodel, rdata, q)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
+    pin.updateFramePlacements(rmodel, rdata)
+
+    # Poses and geometries of the shapes
+    shape1_name = "obstacle"
+    shape1_id = cmodel.getGeometryId(shape1_name)
+    shape1_placement = cdata.oMg[shape1_id]
+
+    shape2_name = "ellips_rob"
+    shape2_id = cmodel.getGeometryId(shape2_name)
+    shape2_placement = cdata.oMg[shape2_id]
+
+    c1 = shape1_placement.translation
+    c2 = shape2_placement.translation
+
+    return np.concatenate((c1, c2))
+
+def dc_dt(rmodel, cmodel, x):
+    q, v = x[:rmodel.nq], x[rmodel.nq:]
+
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+    
+    ## Update positions
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
+
+    # Poses and geometries of the shapes
+    shape1_name = "obstacle"
+    shape1_id = cmodel.getGeometryId(shape1_name)
+    shape1 = cmodel.geometryObjects[shape1_id]
+
+    shape2_name = "ellips_rob"
+    shape2_id = cmodel.getGeometryId(shape2_name)
+    shape2 = cmodel.geometryObjects[shape2_id]
+
+    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+
+    return np.concatenate((v1.linear, v2.linear))
+
 def R(rmodel, cmodel, q, shape_name):
     # Creating the data models
     rdata = rmodel.createData()
     cdata = cmodel.createData()
 
     # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.forwardKinematics(rmodel, rdata, q)
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
     # Poses and geometries of the shapes
     shape_id = cmodel.getGeometryId(shape_name)
     # Getting its pose in the world reference
@@ -122,8 +173,9 @@ def dR_dt(rmodel, cmodel, x, shape_name):
     cdata = cmodel.createData()
 
     # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
 
     pin.forwardKinematics(rmodel, rdata, q, v)
     # Poses and geometries of the shapes
@@ -154,7 +206,9 @@ def A(rmodel, cmodel, q, shape_name):
     cdata = cmodel.createData()
 
     # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.forwardKinematics(rmodel, rdata, q)
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
 
     # Poses and geometries of the shapes
     shape_id = cmodel.getGeometryId(shape_name)
@@ -187,9 +241,9 @@ def dA_dt(rmodel, cmodel, x, shape_name):
     cdata = cmodel.createData()
 
     # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
     pin.forwardKinematics(rmodel, rdata, q, v)
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
     # Poses and geometries of the shapes
     shape_id = cmodel.getGeometryId(shape_name)
     shape = cmodel.geometryObjects[shape_id]
@@ -220,6 +274,7 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
         cmodel (_type_): _description_
         x (np.ndarray): _description_
     """
+
     q = x[: rmodel.nq]
     v = x[rmodel.nq :]
 
@@ -228,20 +283,19 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
     cdata = cmodel.createData()
 
     # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
     pin.forwardKinematics(rmodel, rdata, q, v)
-    # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
 
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
-    # Getting its pose in the world reference
+    # Poses and geometries of the shapes
+    shape1_name = "obstacle"
+    shape1_id = cmodel.getGeometryId(shape1_name)
+    shape1 = cmodel.geometryObjects[shape1_id]
     shape1_placement = cdata.oMg[shape1_id]
-    # Doing the same for the second shape.
-    shape2_geom = shape2.geometry
+
+    shape2_name = "ellips_rob"
+    shape2_id = cmodel.getGeometryId(shape2_name)
+    shape2 = cmodel.geometryObjects[shape2_id]
     shape2_placement = cdata.oMg[shape2_id]
     
     distance = dist(rmodel, cmodel, q)
@@ -252,21 +306,22 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
     c1 = shape1_placement.translation
     c2 = shape2_placement.translation
 
-    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    vc1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+    vc2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
 
-    A_val = A(rmodel, cmodel,q)
-    A1 = A_val[:3,:]
-    A2 = A_val[3:,:]
+    A1 = A(rmodel, cmodel, q, shape1_name)
+    A2 = A(rmodel, cmodel, q, shape2_name)
+    A1_inv = np.linalg.inv(A1)
+    A2_inv = np.linalg.inv(A2)
     
-    A_dot = dA_dt(rmodel, cmodel, x)
-    A1_dot = A_dot[:3,:]
-    A2_dot = A_dot[3:,:]
+    A1_dot = dA_dt(rmodel, cmodel, x, shape1_name)
+    A2_dot = dA_dt(rmodel, cmodel, x, shape2_name)
 
-    n = (x2 - x1).T / distance
-    vc1 = v1.linear
-    vc2 = v2.linear
-    d_dot = np.dot((vc2 - vc1 + (1/2) * np.linalg.pinv(A1) @  (x1 - c1) @ A1_dot - (1/2) * np.linalg.pinv(A2) @  (x2 - c2) @ A2_dot ),n)
+    # Not sure about the 1/2 factor in the equation below
+    L_dot = (x1 - x2).T @ (vc1 - vc2) \
+            - (1/2) * (x1 - c1).T @ A1_dot @ A1_inv @ (x1 - x2) \
+            + (1/2) * (x2 - c2).T @ A2_dot @ A2_inv @ (x1 - x2)
+    d_dot = L_dot / distance
     return d_dot
 
 def ddist_dq(rmodel, cmodel, q):

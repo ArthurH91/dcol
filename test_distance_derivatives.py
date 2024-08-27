@@ -4,8 +4,12 @@ import numpy as np
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist, ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, A, dA_dt, R, dR_dt
+from distance_derivatives import dist, ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, A, dA_dt, R, dR_dt, c, dc_dt
+from viewer import create_viewer, add_sphere_to_viewer
 
+s = np.random.randint(1000)
+pin.seed(s)
+print(s)
 
 class TestDistOpt(unittest.TestCase):
 
@@ -51,6 +55,7 @@ class TestDistOpt(unittest.TestCase):
         cls.v = pin.randomConfiguration(cls.rmodel)
         cls.x = np.concatenate((cls.q, cls.v))
 
+        print(cls.q)
         cls.ddist_dt_ND = finite_diff_time(
             cls.q,
             cls.v,
@@ -101,6 +106,13 @@ class TestDistOpt(unittest.TestCase):
         )
 
         cls.cp = cp(cls.rmodel, cls.cmodel, cls.q)
+        
+        cls.c_dot_ND = finite_diff_time(
+            cls.q,
+            cls.v,
+            lambda variable: c(cls.rmodel, cls.cmodel, variable),
+        )
+
         cls.dx_dq_ND = finite_difference_jacobian(
             lambda variable: cp(cls.rmodel, cls.cmodel, variable), cls.q
         )
@@ -119,6 +131,11 @@ class TestDistOpt(unittest.TestCase):
             lambda variable: h2(cls.rmodel,cls.cmodel,np.array([0, 0, 2]),cls.cp[3:] ,variable), cls.q
         )
 
+        viz = create_viewer(cls.rmodel, cls.cmodel, cls.cmodel)
+        viz.display(cls.q)
+        add_sphere_to_viewer(viz, "cp1", 1.5e-2, cls.cp[:3], color=1000)
+        add_sphere_to_viewer(viz, "cp2", 1.5e-2, cls.cp[3:], color=100000)
+
     def test_ddist_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
@@ -128,6 +145,28 @@ class TestDistOpt(unittest.TestCase):
             0,
             places=4,
             msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+        )
+
+    def test_dR1_dt(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.R1_dot_ND
+                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R1_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")}",
+        )
+        
+    def test_dR2_dt(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.R2_dot_ND
+                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")}",
         )
         
     def test_dA1_dt(cls):
@@ -152,26 +191,16 @@ class TestDistOpt(unittest.TestCase):
             msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A2_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")}",
         )
         
-    def test_dR1_dt(cls):
+
+    def test_dc_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.R1_dot_ND
-                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")
+                cls.c_dot_ND 
+                - dc_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
             ),
             0,
             places=4,
-            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R1_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")}",
-        )
-        
-    def test_dR2_dt(cls):
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.R2_dot_ND
-                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")
-            ),
-            0,
-            places=4,
-            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")}",
+            msg=f"The derivative of the closest point w.r.t t is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.c_dot_ND}\n and the value computed is : \n {dc_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
         )
         
     # def test_ddist_dq(cls):
@@ -234,7 +263,7 @@ class TestDistOpt(unittest.TestCase):
 
 
 
-def finite_diff_time(q, v, f, h=1e-8):
+def finite_diff_time(q, v, f, h=1e-9):
     return (f(q + h * v) - f(q)) / h
 
 
