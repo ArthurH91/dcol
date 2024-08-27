@@ -116,6 +116,7 @@ class TestComparisonDistOpt(unittest.TestCase):
         cp_with_robot = cp(cls.rmodel, cls.cmodel, q)
         cls.cp1_with_robot = cp_with_robot[:3]
         cls.cp2_with_robot = cp_with_robot[3:]
+        cls.dist_with_robot = dist(cls.rmodel, cls.cmodel, q)
 
         ###! Vizualisation
         add_sphere_to_viewer(
@@ -180,12 +181,20 @@ class TestComparisonDistOpt(unittest.TestCase):
             msg=f"The closest point 2 computed from GJK ({cls.cp2_hppfcl_without_robot})is not the same as the one computed with the robot ({cls.cp2_with_robot}).",
         )
 
-    def test_dist_random_config(cls):
+    def test_dist_random_config_hppfcl_opt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(cls.dist_hppfcl_without_robot - cls.dist_opt_val),
             0,
             places=5,
             msg=f"The distance computed from GJK ({cls.dist_hppfcl_without_robot})is not the same as the distance computed with the QCQP ({cls.dist_opt_val}).",
+        )
+
+    def test_dist_random_config_hppfcl_robot(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(cls.dist_hppfcl_without_robot - cls.dist_with_robot),
+            0,
+            places=5,
+            msg=f"The distance computed from GJK ({cls.dist_hppfcl_without_robot})is not the same as the distance computed with the robot ({cls.dist_with_robot}).",
         )
 
 
