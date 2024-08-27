@@ -15,7 +15,7 @@ def create_viewer(rmodel, cmodel, vmodel):
     return viz
 
 
-def add_sphere_to_viewer(viz, sphere_name, radius, position, color=[1, 0, 0, 1]):
+def add_sphere_to_viewer(viz, sphere_name, radius, position, color=int):
     """
     Adds a sphere to the Meshcat visualizer.
 
@@ -24,7 +24,7 @@ def add_sphere_to_viewer(viz, sphere_name, radius, position, color=[1, 0, 0, 1])
     sphere_name (str): The name of the sphere.
     radius (float): The radius of the sphere.
     position (list or np.array): The position of the sphere as [x, y, z].
-    color (list): The color of the sphere as [r, g, b, alpha].
+    color (int): The color of the sphere as ?.
     """
     try:
         # Check if the sphere already exists

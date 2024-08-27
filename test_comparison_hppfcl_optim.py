@@ -22,17 +22,20 @@ class TestComparisonDistOpt(unittest.TestCase):
         cls.c1_init = np.random.randn(3) 
         cls.c2_init = np.zeros(3)
 
-        # Define initial rotation for the ellipsoids
-        cls.R1_init = pin.SE3.Random().rotation
-        cls.R2_init = pin.SE3.Random().rotation
+        # Define initial rotation for the ellipsoids. Those are the positions with regards to their parent frames.
+        cls.R1_init = pin.SE3.Identity().rotation # This is w.r.t. the world.
+        cls.R2_init = pin.SE3.Identity().rotation # This is w.r.t. the robot.
         # Define the radii for the ellipsoids
-        cls.radii1 = [0.1, 0.2, 0.1]
-        cls.radii2 = [0.1, 0.1, 0.2]
+        cls.radii1 = [0.1, 0.2, 0.1] # Ellipsoid
+        cls.radii2 = [0.1, 0.1, 0.2] # Ellipsoid
+        
+        # cls.radii1 = [0.1, 0.1, 0.1] # Sphere
+        # cls.radii2 = [0.1, 0.1, 0.1] # Sphere
 
         cls.shape1 = hppfcl.Ellipsoid(*cls.radii1)
         cls.shape2 = hppfcl.Ellipsoid(*cls.radii2)
 
-        # Construct matrices A and B for ellipsoid constraints
+        # Matrices describing the shapes of the ellipsoids
         cls.D1 = np.diag([1 / r**2 for r in cls.radii1])
         cls.D2 = np.diag([1 / r**2 for r in cls.radii2])
 
@@ -71,9 +74,11 @@ class TestComparisonDistOpt(unittest.TestCase):
         if v is not None:
             pin.forwardKinematics(cls.rmodel, cls.rdata, q, v)
         
+        # Updated rotation matrices of the two ellipsoids, expressed in the WORLD frame.
         R1 = cls.cdata.oMg[cls.cmodel.getGeometryId("obstacle")].rotation
         R2 = cls.cdata.oMg[cls.cmodel.getGeometryId("ellips_rob")].rotation
 
+        # Updated translation vectors of the two ellipsoids, expressed in the WORLD frame.
         c1 = cls.cdata.oMg[cls.cmodel.getGeometryId("obstacle")].translation
         c2 = cls.cdata.oMg[cls.cmodel.getGeometryId("ellips_rob")].translation
 
@@ -90,25 +95,30 @@ class TestComparisonDistOpt(unittest.TestCase):
         v = pin.randomConfiguration(cls.rmodel)
         x = np.concatenate((q, v))
 
+        # Obtaining the updated matrices and vectors.
         A1, A2, R1, R2, c1, c2 = cls.update_A_R_c(q, v)
         
+        # This is the position of the center of the ellpsoids expressed in the WORLD frame.
         c1_SE3 = pin.SE3(R1.T, c1)
         c2_SE3 = pin.SE3(R2.T, c2)
 
+        #? This is the position of the center of the ellpsoids expressed in the WORLD frame, but with a rotation? 
         A1_SE3 = pin.SE3(A1.T, c1)
         A2_SE3 = pin.SE3(A2.T, c2)
 
+        ###! HPPFCL WITHOUT ROBOT
         cls.cp1_hppfcl_without_robot, cls.cp2_hppfcl_without_robot = cp_hppfcl(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
         cls.dist_hppfcl_without_robot = dist_hppfcl(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
+        
+        ###! OPTIMISATION RESULT
         cls.dist_opt_val = dist_opt(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
         cls.cp1_opt_val, cls.cp2_opt_val = cp_opt(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
 
-        # ###! Vizualisation
-        add_sphere_to_viewer(cls.viz, "cp1_hppfcl_without_robot", 1e-2, cls.cp1_hppfcl_without_robot)
-        add_sphere_to_viewer(cls.viz, "cp2_hppfcl_without_robot", 1e-2, cls.cp2_hppfcl_without_robot)
-
-        add_sphere_to_viewer(cls.viz, "cp1_opt", 2e-2, cls.cp1_opt_val)
-        add_sphere_to_viewer(cls.viz, "cp2_opt", 2e-2, cls.cp2_opt_val)
+        ###! Vizualisation
+        add_sphere_to_viewer(cls.viz, "cp1_hppfcl_without_robot", 1.5e-2, cls.cp1_hppfcl_without_robot, color =1000) # BLUE 
+        add_sphere_to_viewer(cls.viz, "cp2_hppfcl_without_robot", 1.5e-2, cls.cp2_hppfcl_without_robot, color= 1000) # BLUE
+        add_sphere_to_viewer(cls.viz, "cp1_opt", 1.5e-2, cls.cp1_opt_val, color = 2396745) # GREEN
+        add_sphere_to_viewer(cls.viz, "cp2_opt", 1.5e-2, cls.cp2_opt_val, color = 2396745) # GREEN
 
         cls.viz.display(q)        
 
@@ -123,7 +133,6 @@ class TestComparisonDistOpt(unittest.TestCase):
         )
         
     def test_cp2_random_config(cls):
-        cls.setup_random_config()
         cls.assertAlmostEqual(
             np.linalg.norm(cls.cp2_hppfcl_without_robot - cls.cp2_opt_val),
             0,
@@ -132,8 +141,6 @@ class TestComparisonDistOpt(unittest.TestCase):
         )
 
     def test_dist_random_config(cls):
-        
-        cls.setup_random_config()
         cls.assertAlmostEqual(
             np.linalg.norm(
                  cls.dist_hppfcl_without_robot
