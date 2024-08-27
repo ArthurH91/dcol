@@ -9,8 +9,8 @@ def create_viewer(rmodel, cmodel, vmodel):
         visual_model=vmodel,
     )
     viz.initViewer(viewer=meshcat.Visualizer(zmq_url="tcp://127.0.0.1:6000"))
+    viz.clean()
     viz.loadViewerModel("pinocchio")
-
     viz.displayCollisions(True)
     return viz
 
