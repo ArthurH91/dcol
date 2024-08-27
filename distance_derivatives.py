@@ -151,8 +151,8 @@ def A(rmodel, cmodel, q):
                 [0, 0, 1 / shape2_radii[2] ** 2],
             ]
         )
-    A1 = shape1_placement.rotation.T @ D1 @ shape1_placement.rotation
-    A2 = shape2_placement.rotation.T @ D2 @ shape2_placement.rotation
+    A1 = shape1_placement.rotation @ D1 @ shape1_placement.rotation.T
+    A2 = shape2_placement.rotation @ D2 @ shape2_placement.rotation.T
 
     return np.concatenate((A1, A2))
 
@@ -288,8 +288,8 @@ def dA_dt(rmodel, cmodel, x):
     R1_dot = dR1_dt(rmodel, cmodel, x)
     R2_dot = dR2_dt(rmodel, cmodel, x)
 
-    A1_dot = R1_dot.T @ D1 @ R1 + R1.T @ D1 @ R1_dot
-    A2_dot = R2_dot.T @ D2 @ R2 + R2.T @ D2 @ R2_dot
+    A1_dot = R1_dot @ D1 @ R1.T + R1 @ D1 @ R1_dot.T
+    A2_dot = R2_dot @ D2 @ R2.T + R2 @ D2 @ R2_dot.T
     return np.concatenate((A1_dot, A2_dot))
 
 

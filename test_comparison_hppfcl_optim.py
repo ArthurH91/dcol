@@ -106,12 +106,18 @@ class TestComparisonDistOpt(unittest.TestCase):
         cls.dist_opt_val = dist_opt(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
         cls.cp1_opt_val, cls.cp2_opt_val = cp_opt(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
 
+        ###! HPP WITH ROBOT
+        cp_with_robot = cp(cls.rmodel, cls.cmodel, q)
+        cp1_with_robot = cp_with_robot[:3]
+        cp2_with_robot = cp_with_robot[3:]
+        
         ###! Vizualisation
         add_sphere_to_viewer(cls.viz, "cp1_hppfcl_without_robot", 1.5e-2, cls.cp1_hppfcl_without_robot, color =1000) # BLUE 
         add_sphere_to_viewer(cls.viz, "cp2_hppfcl_without_robot", 1.5e-2, cls.cp2_hppfcl_without_robot, color= 1000) # BLUE
         add_sphere_to_viewer(cls.viz, "cp1_opt", 1.5e-2, cls.cp1_opt_val, color = 2396745) # GREEN
-        add_sphere_to_viewer(cls.viz, "cp2_opt", 1.5e-2, cls.cp2_opt_val, color = 2396745) # GREEN
-
+        add_sphere_to_viewer(cls.viz, "cp2_opt", 1.5e-2, cls.cp2_opt_val, color = 2396745) # GREEN        
+        add_sphere_to_viewer(cls.viz, "cp1_opt_with_robot", 1.5e-2, cp1_with_robot, color = 100000) # ?
+        add_sphere_to_viewer(cls.viz, "cp2_opt_with_robot", 1.5e-2, cp2_with_robot, color = 100000) # ?
         cls.viz.display(q)        
 
     def test_cp1_random_config(cls):
