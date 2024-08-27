@@ -4,21 +4,37 @@ import numpy as np
 import pinocchio as pin
 
 from wrapper_panda import PandaWrapper
-from distance_derivatives import dist,ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, A, dA_dt, R1, dR1_dt, R2, dR2_dt
+from distance_derivatives import dist, ddist_dq, ddist_dt, cp, dX_dq, dddist_dt_dq, h1, h2, A, dA_dt, R, dR_dt
 
 
 class TestDistOpt(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        def R1(rmodel, cmodel, q):
+            return R(rmodel, cmodel, q, "obstacle")
+        def R2(rmodel, cmodel, q):
+            return R(rmodel, cmodel, q, "ellips_rob")
+        def dR1_dt(rmodel, cmodel, x):
+            return dR_dt(rmodel, cmodel, x, "obstacle")
+        def dR2_dt(rmodel, cmodel, x):
+            return dR_dt(rmodel, cmodel, x, "ellips_rob")
+        def A1(rmodel, cmodel, q):
+            return A(rmodel, cmodel, q, "obstacle")
+        def A2(rmodel, cmodel, q):
+            return A(rmodel, cmodel, q, "ellips_rob")
+        def dA1_dt(rmodel, cmodel, x):
+            return dA_dt(rmodel, cmodel, x, "obstacle")
+        def dA2_dt(rmodel, cmodel, x):
+            return dA_dt(rmodel, cmodel, x, "ellips_rob")
 
         # OBS CONSTANTS
-        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 250]))
-        cls.DIM_OBS = [10.1, 010.1, 10.1]
+        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
+        cls.DIM_OBS = [0.15, 0.1, 0.2]
 
         # ELLIPS ON THE ROBOT
         cls.PLACEMENT_ROB = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
-        cls.DIM_ROB = [10.1, 12.1, 10.1]
+        cls.DIM_ROB = [0.1, 0.2, 0.15]
         
         # Creating the robot
         robot_wrapper = PandaWrapper()
@@ -45,10 +61,20 @@ class TestDistOpt(unittest.TestCase):
             ),
         )
         
-        cls.A_dot_ND = finite_diff_time(
+        cls.A1_dot_ND = finite_diff_time(
             cls.q, 
             cls.v,
-            lambda variable: A(
+            lambda variable: A1(
+                cls.rmodel,
+                cls.cmodel,
+                variable
+            )
+        )
+
+        cls.A2_dot_ND = finite_diff_time(
+            cls.q, 
+            cls.v,
+            lambda variable: A2(
                 cls.rmodel,
                 cls.cmodel,
                 variable
@@ -73,7 +99,6 @@ class TestDistOpt(unittest.TestCase):
                 variable
             )
         )
-
 
         cls.cp = cp(cls.rmodel, cls.cmodel, cls.q)
         cls.dx_dq_ND = finite_difference_jacobian(
@@ -105,37 +130,48 @@ class TestDistOpt(unittest.TestCase):
             msg=f"The time derivative of the distance is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.ddist_dt_ND}\n and the value computed is : \n {ddist_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
         )
         
-    def test_dA_dt(cls):
+    def test_dA1_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.A_dot_ND
-                - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+                cls.A1_dot_ND
+                - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")
             ),
             0,
             places=4,
-            msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+            msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A1_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")}",
+        )
+
+    def test_dA2_dt(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.A2_dot_ND
+                - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")
+            ),
+            0,
+            places=4,
+            msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A2_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")}",
         )
         
     def test_dR1_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.R1_dot_ND
-                - dR1_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")
             ),
             0,
             places=4,
-            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R1_dot_ND}\n and the value computed is : \n {dR1_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R1_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "obstacle")}",
         )
         
     def test_dR2_dt(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.R2_dot_ND
-                - dR2_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))
+                - dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")
             ),
             0,
             places=4,
-            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR2_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)))}",
+            msg=f"The time derivative of the rotation matrix is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.R2_dot_ND}\n and the value computed is : \n {dR_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")}",
         )
         
     # def test_ddist_dq(cls):
@@ -198,7 +234,7 @@ class TestDistOpt(unittest.TestCase):
 
 
 
-def finite_diff_time(q, v, f, h=1e-6):
+def finite_diff_time(q, v, f, h=1e-8):
     return (f(q + h * v) - f(q)) / h
 
 

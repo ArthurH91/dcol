@@ -100,7 +100,44 @@ def cp(rmodel, cmodel, q):
     cp2 = res.getNearestPoint2()
     return np.concatenate((cp1, cp2))
 
-def A(rmodel, cmodel, q):
+def R(rmodel, cmodel, q, shape_name):
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    # Poses and geometries of the shapes
+    shape_id = cmodel.getGeometryId(shape_name)
+    # Getting its pose in the world reference
+    shape_placement = cdata.oMg[shape_id]
+    return shape_placement.rotation
+
+def dR_dt(rmodel, cmodel, x, shape_name):
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+    
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
+    pin.framesForwardKinematics(rmodel, rdata, q)
+
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    # Poses and geometries of the shapes
+    shape_id = cmodel.getGeometryId(shape_name)
+    shape = cmodel.geometryObjects[shape_id]
+
+    # Getting its pose in the world reference
+    R = cdata.oMg[shape_id].rotation
+    v = pin.getFrameVelocity(rmodel, rdata, shape.parentFrame, pin.LOCAL_WORLD_ALIGNED)
+    wx = pin.skew(v.angular)
+    
+    return wx @ R
+
+def A(rmodel, cmodel, q, shape_name):
     """Returns the matrices A1 and A2 that are the matrices defining the geometry and the rotation of the two ellipsoids.
     A_i = R_i.T @ D_i @ R_i. Where R_i is the rotation matrix of the ellipsoid and D_i is the radii matrix.
 
@@ -110,7 +147,7 @@ def A(rmodel, cmodel, q):
         q (_type_): _description_
 
     Returns:
-        tuple: A1, A2
+        tuple: A
     """
     # Creating the data models
     rdata = rmodel.createData()
@@ -120,124 +157,28 @@ def A(rmodel, cmodel, q):
     pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
 
     # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
-
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
+    shape_id = cmodel.getGeometryId(shape_name)
+    shape = cmodel.geometryObjects[shape_id]
 
     # Getting the geometry of the shape 1
-    shape1_geom = shape1.geometry
+    shape_geom = shape.geometry
     # Getting the radii of the shape 1
-    shape1_radii = shape1_geom.radii
+    shape_radii = shape_geom.radii
     # Getting its pose in the world reference
-    shape1_placement = cdata.oMg[shape1_id]
-    # Doing the same for the second shape.
-    shape2_geom = shape2.geometry
-    shape2_placement = cdata.oMg[shape2_id]
-    shape2_radii = shape2_geom.radii
-
-    D1 = np.array(
+    Rot = R(rmodel, cmodel, q, shape_name)
+    D = np.array(
             [
-                [1 / shape1_radii[0] ** 2, 0, 0],
-                [0, 1 / shape1_radii[1] ** 2, 0],
-                [0, 0, 1 / shape1_radii[2] ** 2],
+                [1 / shape_radii[0] ** 2, 0, 0],
+                [0, 1 / shape_radii[1] ** 2, 0],
+                [0, 0, 1 / shape_radii[2] ** 2],
             ]
         )
-    D2 = np.array(
-            [
-                [1 / shape2_radii[0] ** 2, 0, 0],
-                [0, 1 / shape2_radii[1] ** 2, 0],
-                [0, 0, 1 / shape2_radii[2] ** 2],
-            ]
-        )
-    A1 = shape1_placement.rotation @ D1 @ shape1_placement.rotation.T
-    A2 = shape2_placement.rotation @ D2 @ shape2_placement.rotation.T
 
-    return np.concatenate((A1, A2))
+    A = Rot @ D @ Rot.T
 
-def R1(rmodel, cmodel, q):
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
+    return A
 
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    # Getting its pose in the world reference
-    shape1_placement = cdata.oMg[shape1_id]
-    return shape1_placement.rotation
-
-def R2(rmodel, cmodel, q):
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    # Poses and geometries of the shapes
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    # Getting its pose in the world reference
-    shape2_placement = cdata.oMg[shape2_id]
-    return shape2_placement.rotation
-
-def dR1_dt(rmodel, cmodel, x):
-           
-    q = x[: rmodel.nq]
-    v = x[rmodel.nq :]
-    
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
-
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
-    pin.forwardKinematics(rmodel, rdata, q, v)
-    # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
-
-    # Getting its pose in the world reference
-    R1 = cdata.oMg[shape1_id].rotation
-    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-
-    w1x = pin.skew(v1.angular)
-    
-    return w1x @ R1
-
-
-def dR2_dt(rmodel, cmodel, x):
-           
-    q = x[: rmodel.nq]
-    v = x[rmodel.nq :]
-    
-    # Creating the data models
-    rdata = rmodel.createData()
-    cdata = cmodel.createData()
-
-    # Updating the position of the joints & the geometry objects.
-    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata, q)
-    pin.framesForwardKinematics(rmodel, rdata, q)
-
-    pin.forwardKinematics(rmodel, rdata, q, v)
-    # Poses and geometries of the shapes
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
-
-    # Getting its pose in the world reference
-    R2 = cdata.oMg[shape2_id].rotation
-    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
-
-    w2x = pin.skew(v2.angular)
-    
-    return w2x @ R2
-
-
-
-def dA_dt(rmodel, cmodel, x):
-    
+def dA_dt(rmodel, cmodel, x, shape_name):
     q = x[: rmodel.nq]
     v = x[rmodel.nq :]
     
@@ -250,47 +191,25 @@ def dA_dt(rmodel, cmodel, x):
     pin.framesForwardKinematics(rmodel, rdata, q)
     pin.forwardKinematics(rmodel, rdata, q, v)
     # Poses and geometries of the shapes
-    shape1_id = cmodel.getGeometryId("obstacle")
-    shape1 = cmodel.geometryObjects[shape1_id]
-
-    shape2_id = cmodel.getGeometryId("ellips_rob")
-    shape2 = cmodel.geometryObjects[shape2_id]
+    shape_id = cmodel.getGeometryId(shape_name)
+    shape = cmodel.geometryObjects[shape_id]
 
     # Getting the geometry of the shape 1
-    shape1_geom = shape1.geometry
+    shape_geom = shape.geometry
     # Getting the radii of the shape 1
-    shape1_radii = shape1_geom.radii
+    shape_radii = shape_geom.radii
     # Getting its pose in the world reference
-    shape1_placement = cdata.oMg[shape1_id]
-    # Doing the same for the second shape.
-    shape2_geom = shape2.geometry
-    shape2_placement = cdata.oMg[shape2_id]
-    shape2_radii = shape2_geom.radii
-    
-    R1 = shape1_placement.rotation
-    R2 = shape2_placement.rotation
-    
-    D1 = np.array(
+    Rot = R(rmodel, cmodel, q, shape_name)
+    D = np.array(
             [
-                [1 / shape1_radii[0] ** 2, 0, 0],
-                [0, 1 / shape1_radii[1] ** 2, 0],
-                [0, 0, 1 / shape1_radii[2] ** 2],
+                [1 / shape_radii[0] ** 2, 0, 0],
+                [0, 1 / shape_radii[1] ** 2, 0],
+                [0, 0, 1 / shape_radii[2] ** 2],
             ]
         )
-    D2 = np.array(
-            [
-                [1 / shape2_radii[0] ** 2, 0, 0],
-                [0, 1 / shape2_radii[1] ** 2, 0],
-                [0, 0, 1 / shape2_radii[2] ** 2],
-            ]
-        )
-
-    R1_dot = dR1_dt(rmodel, cmodel, x)
-    R2_dot = dR2_dt(rmodel, cmodel, x)
-
-    A1_dot = R1_dot @ D1 @ R1.T + R1 @ D1 @ R1_dot.T
-    A2_dot = R2_dot @ D2 @ R2.T + R2 @ D2 @ R2_dot.T
-    return np.concatenate((A1_dot, A2_dot))
+    R_dot = dR_dt(rmodel, cmodel, x, shape_name)
+    A_dot = R_dot @ D @ Rot.T + Rot @ D @ R_dot.T
+    return A_dot
 
 
 def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
