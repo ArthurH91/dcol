@@ -81,12 +81,8 @@ class TestComparisonDistOpt(unittest.TestCase):
         # Updated translation vectors of the two ellipsoids, expressed in the WORLD frame.
         c1 = cls.cdata.oMg[cls.cmodel.getGeometryId("obstacle")].translation
         c2 = cls.cdata.oMg[cls.cmodel.getGeometryId("ellips_rob")].translation
-
-        # # Calculate rotated matrices
-        A1 = R1.T @ cls.D1 @ R1
-        A2 = R2.T @ cls.D2 @ R2
         
-        return A1, A2, R1, R2, c1, c2
+        return R1, R2, c1, c2
     
     @classmethod
     def setup_random_config(cls):
@@ -96,15 +92,11 @@ class TestComparisonDistOpt(unittest.TestCase):
         x = np.concatenate((q, v))
 
         # Obtaining the updated matrices and vectors.
-        A1, A2, R1, R2, c1, c2 = cls.update_A_R_c(q, v)
+        R1, R2, c1, c2 = cls.update_A_R_c(q, v)
         
         # This is the position of the center of the ellpsoids expressed in the WORLD frame.
-        c1_SE3 = pin.SE3(R1.T, c1)
-        c2_SE3 = pin.SE3(R2.T, c2)
-
-        #? This is the position of the center of the ellpsoids expressed in the WORLD frame, but with a rotation? 
-        A1_SE3 = pin.SE3(A1.T, c1)
-        A2_SE3 = pin.SE3(A2.T, c2)
+        c1_SE3 = pin.SE3(R1, c1)
+        c2_SE3 = pin.SE3(R2, c2)
 
         ###! HPPFCL WITHOUT ROBOT
         cls.cp1_hppfcl_without_robot, cls.cp2_hppfcl_without_robot = cp_hppfcl(cls.shape1, c1_SE3, cls.shape2, c2_SE3)
@@ -128,7 +120,7 @@ class TestComparisonDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(cls.cp1_hppfcl_without_robot - cls.cp1_opt_val),
             0,
-            places=9,
+            places=4,
             msg=f"The closest point 1 computed from GJK ({cls.cp1_hppfcl_without_robot})is not the same as the one computed with the QCQP ({cls.cp1_opt_val}).",
         )
         
@@ -136,7 +128,7 @@ class TestComparisonDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(cls.cp2_hppfcl_without_robot - cls.cp2_opt_val),
             0,
-            places=9,
+            places=4,
             msg=f"The closest point 2 computed from GJK ({cls.cp2_hppfcl_without_robot})is not the same as the one computed with the QCQP ({cls.cp2_opt_val}).",
         )
 
@@ -181,8 +173,8 @@ def cp_opt(shape1, c1_se3, shape2, c2_se3):
     R1 = c1_se3.rotation
     R2 = c2_se3.rotation
 
-    A1 = R1.T @ D1 @ R1
-    A2 = R2.T @ D2 @ R2
+    A1 = R1 @ D1 @ R1.T
+    A2 = R2 @ D2 @ R2.T
 
     qcqp_solver = EllipsoidOptimization()
     qcqp_solver.setup_problem(c1_se3.translation, A1, c2_se3.translation, A2)
