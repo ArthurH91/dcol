@@ -5,6 +5,7 @@ import os
 import numpy as np
 import casadi
 
+
 class EllipsoidOptimization:
     """
     Class for setting up and solving an optimization problem for ellipsoids using CasADi.
@@ -42,7 +43,7 @@ class EllipsoidOptimization:
         """
 
         # Define the cost function (distance between closest points)
-        self.totalcost = (1/2) * casadi.sumsqr((self.x1 - self.x2)) 
+        self.totalcost = (1 / 2) * casadi.sumsqr((self.x1 - self.x2))
 
         # Define the constraints for the ellipsoids
         self.con1 = (self.x1 - x0_1).T @ A_1 @ (self.x1 - x0_1) / 2 == 1 / 2
@@ -57,18 +58,23 @@ class EllipsoidOptimization:
         Args:
             warm_start_primal (np.ndarray, optional): Initial guess for the solver. Defaults to None.
         """
-        self.opti.solver('ipopt')
+        s_opt = {
+            "tol": 1e-4,
+            "acceptable_tol": 1e-4,
+            "max_iter": 300,
+        }
+        self.opti.solver("ipopt", {},s_opt)
 
         self.opti.minimize(self.totalcost)
 
         # Apply warm start values if provided
         if warm_start_primal is not None:
             self.opti.set_initial(self.x1, warm_start_primal[: self.ellipsoid_dim])
-            self.opti.set_initial(self.x2, warm_start_primal[self.ellipsoid_dim:])
+            self.opti.set_initial(self.x2, warm_start_primal[self.ellipsoid_dim :])
 
         try:
-            with open(os.devnull, 'w') as fnull:
-                with contextlib.redirect_stdout(fnull):  
+            with open(os.devnull, "w") as fnull:
+                with contextlib.redirect_stdout(fnull):
                     self.solution = self.opti.solve()
         except RuntimeError as e:
             print(f"Solver failed: {e}")
@@ -109,6 +115,7 @@ class EllipsoidOptimization:
         con2_dual = self.opti.value(self.opti.dual(self.con2))
         return con1_dual, con2_dual
 
+
 def radii_to_matrix(radii):
     """
     Converts ellipsoid radii to the matrix representation.
@@ -128,4 +135,3 @@ def radii_to_matrix(radii):
             [0, 0, 1 / radii[2] ** 2],
         ]
     )
-
