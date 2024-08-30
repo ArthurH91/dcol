@@ -111,12 +111,20 @@ class TestComparisonDistOpt(unittest.TestCase):
         cls.cp1_opt_val, cls.cp2_opt_val = cp_opt(
             cls.shape1, c1_SE3, cls.shape2, c2_SE3
         )
+        cls.opt_lambda1, cls.opt_lambda2 = dual_val_opt(
+            cls.shape1, c1_SE3, cls.shape2, c2_SE3
+        )
 
         ###! HPP WITH ROBOT
         cp_with_robot = cp(cls.rmodel, cls.cmodel, q)
         cls.cp1_with_robot = cp_with_robot[:3]
         cls.cp2_with_robot = cp_with_robot[3:]
 
+        ###! ANALYTICAL
+        cls.lambda1_ana = lambda1_ana(cls.cp1_hppfcl_without_robot, cls.cp2_hppfcl_without_robot, c1)
+        cls.lambda2_ana = lambda2_ana(cls.cp1_hppfcl_without_robot, cls.cp2_hppfcl_without_robot, c2)
+
+        
         ###! Vizualisation
         add_sphere_to_viewer(
             cls.viz,
@@ -186,7 +194,23 @@ class TestComparisonDistOpt(unittest.TestCase):
             0,
             places=5,
             msg=f"The distance computed from GJK ({cls.dist_hppfcl_without_robot})is not the same as the distance computed with the QCQP ({cls.dist_opt_val}).",
+        ) 
+    def test_lambda1_opt_val(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(cls.lambda1_ana - cls.opt_lambda1),
+            0,
+            places=5,
+            msg=f"The dual value lambda_1 computed analytically ({cls.lambda1_ana})is not the same as the one computed with the QCQP ({cls.opt_lambda1}).",
         )
+    def test_lambda2_opt_val(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(cls.lambda2_ana - cls.opt_lambda2),
+            0,
+            places=5,
+            msg=f"The dual value lambda_2 computed analytically ({cls.lambda2_ana})is not the same as the one computed with the QCQP ({cls.opt_lambda2}).",
+        )        
+         
+        
 
 
 def dist_hppfcl(shape1, c1_se3, shape2, c2_se3):
@@ -211,6 +235,13 @@ def cp_hppfcl(shape1, c1_se3, shape2, c2_se3):
     cp2 = res.getNearestPoint2()
     return cp1, cp2
 
+def lambda1_ana(x1, x2,c1):
+    return - (x1 - c1).T @ (x1 - x2) 
+
+
+def lambda2_ana(x1, x2, c2):
+    return  (x2 - c2).T @ (x1 - x2) 
+
 
 def cp_opt(shape1, c1_se3, shape2, c2_se3):
 
@@ -232,6 +263,25 @@ def cp_opt(shape1, c1_se3, shape2, c2_se3):
     cp1, cp2 = qcqp_solver.get_optimal_values()
     return cp1, cp2
 
+def dual_val_opt(shape1, c1_se3, shape2, c2_se3):
+
+    D1 = np.diag([1 / r**2 for r in shape1.radii])
+    D2 = np.diag([1 / r**2 for r in shape2.radii])
+
+    R1 = c1_se3.rotation
+    R2 = c2_se3.rotation
+
+    A1 = R1 @ D1 @ R1.T
+    A2 = R2 @ D2 @ R2.T
+
+    qcqp_solver = EllipsoidOptimization()
+    qcqp_solver.setup_problem(c1_se3.translation, A1, c2_se3.translation, A2)
+    qcqp_solver.solve_problem(
+        warm_start_primal=np.concatenate((c1_se3.translation, c2_se3.translation))
+    )
+
+    lambda1, lambda2 = qcqp_solver.get_dual_values()
+    return lambda1, lambda2
 
 def dist_opt(shape1, c1_se3, shape2, c2_se3):
     x1, x2 = cp_opt(shape1, c1_se3, shape2, c2_se3)
