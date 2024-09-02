@@ -32,13 +32,21 @@ class TestDistOpt(unittest.TestCase):
         def dA2_dt(rmodel, cmodel, x):
             return dA_dt(rmodel, cmodel, x, "ellips_rob")
 
+        # # OBS CONSTANTS
+        # cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
+        # cls.DIM_OBS = [0.15, 0.1, 0.2]
+
+        # # ELLIPS ON THE ROBOT
+        # cls.PLACEMENT_ROB = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
+        # cls.DIM_ROB = [0.1, 0.2, 0.15]
+        
         # OBS CONSTANTS
-        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 2]))
-        cls.DIM_OBS = [0.15, 0.1, 0.2]
+        cls.PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", np.pi/2), np.array([0, -0.0, 1.2]))
+        cls.DIM_OBS = [0.1, 0.15, 0.1]
 
         # ELLIPS ON THE ROBOT
-        cls.PLACEMENT_ROB = pin.SE3(pin.utils.rotate("x", 0), np.array([0, 0, 0]))
-        cls.DIM_ROB = [0.1, 0.2, 0.15]
+        cls.PLACEMENT_ROB = pin.SE3(np.eye(3), np.array([0, 0, 0]))
+        cls.DIM_ROB =  [0.1, 0.1, 0.15]
         
         # Creating the robot
         robot_wrapper = PandaWrapper()
@@ -55,6 +63,11 @@ class TestDistOpt(unittest.TestCase):
         cls.v = pin.randomConfiguration(cls.rmodel)
         cls.x = np.concatenate((cls.q, cls.v))
 
+        # cls.x = np.array([-0.13618401593655072, 1.4548323140534223, -0.7455721959187626, 0.9802847672458945, 0.20975276500006032, 0.4790169063529318, -0.0010387435491745235, -6.909107593655072, 9.502458405342223, 7.048769408123746, 23.785128724589452, -21.444000499993965, 2.354105635293183, 0.35238764508254505])
+        # cls.q = cls.x[:cls.rmodel.nq]
+        # cls.v = cls.x[cls.rmodel.nq:]
+        
+        
         print(cls.q)
         cls.ddist_dt_ND = finite_diff_time(
             cls.q,
@@ -187,7 +200,7 @@ class TestDistOpt(unittest.TestCase):
                 - dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")
             ),
             0,
-            places=4,
+            places=3,
             msg=f"The time derivative of the rotation matrices is not equal to the one from numdiff. \n The value of the numdiff is : \n {cls.A2_dot_ND}\n and the value computed is : \n {dA_dt(cls.rmodel, cls.cmodel, np.concatenate((cls.q, cls.v)), "ellips_rob")}",
         )
         

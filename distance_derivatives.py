@@ -266,7 +266,7 @@ def dA_dt(rmodel, cmodel, x, shape_name):
     return A_dot
 
 
-def ddist_dt(rmodel, cmodel, x: np.ndarray, verbose = True):
+def ddist_dt(rmodel, cmodel, x: np.ndarray):
     """Computing the derivative of the distance w.r.t. time.
 
     Args:

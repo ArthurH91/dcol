@@ -7,7 +7,7 @@ import mim_solvers
 import numpy as np
 import pinocchio as pin
 
-# from residualDistanceCollision import ResidualCollision
+from colmpc import ResidualDistanceCollision
 from VelocityAvoidanceResidual import ResidualModelVelocityAvoidance
 
 
@@ -124,7 +124,9 @@ class OCPPandaReachingColWithMultipleCol:
         # Creating the residual
 
         for col_idx in range(len(self._cmodel.collisionPairs)):
-
+            # obstacleDistanceResidual = ResidualDistanceCollision(
+            #     self._state, 7,self._cmodel, col_idx
+            # )
             obstacleDistanceResidual = ResidualModelVelocityAvoidance(
                 self._state, self._cmodel, col_idx
             )
@@ -132,6 +134,7 @@ class OCPPandaReachingColWithMultipleCol:
             constraint = crocoddyl.ConstraintModelResidual(
                 self._state,
                 obstacleDistanceResidual,
+                # np.zeros(1),
                 np.array([self._SAFETY_THRESHOLD]),
                 np.array([np.inf]),
             )
