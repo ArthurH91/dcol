@@ -28,7 +28,7 @@ class OCPPandaReachingColWithMultipleCol:
         WEIGHT_GRIPPER_POSE=10,
         WEIGHT_GRIPPER_POSE_TERM=10,
         WEIGHT_LIMIT=1e-1,
-        SAFETY_THRESHOLD=5e-3,
+        SAFETY_THRESHOLD=5e-5*0,
         max_qp_iters=1000,
         callbacks=False,
     ) -> None:
@@ -125,7 +125,7 @@ class OCPPandaReachingColWithMultipleCol:
 
         for col_idx in range(len(self._cmodel.collisionPairs)):
             # obstacleDistanceResidual = ResidualDistanceCollision(
-            #     self._state, 7,self._cmodel, col_idx
+                # self._state, 7,self._cmodel, col_idx
             # )
             obstacleDistanceResidual = ResidualModelVelocityAvoidance(
                 self._state, self._cmodel, col_idx

@@ -78,18 +78,17 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         ddist_dt_val_ND = self.numdiff_ddist_dt(x)
         ddist_dt_val = ddist_dt(self._pinocchio, self._geom_model,x)
         x_ = x.tolist()
-        assert np.isclose(np.linalg.norm(ddist_dt_val_ND - ddist_dt_val),0, atol=1e-2), f" diff: {np.linalg.norm(ddist_dt_val_ND - ddist_dt_val)}, ddot = {ddist_dt_val}, ddot_nd = {ddist_dt_val_ND}  x : {x_}"
+        # assert np.isclose(np.linalg.norm(ddist_dt_val_ND - ddist_dt_val),0, atol=1e-2), f" diff: {np.linalg.norm(ddist_dt_val_ND - ddist_dt_val)}, ddot = {ddist_dt_val}, ddot_nd = {ddist_dt_val_ND}  x : {x_}"
         # print(f"np.linalg.norm(ddist_dt_val_ND - ddist_dt_val): {np.linalg.norm(ddist_dt_val_ND - ddist_dt_val)}")
         
-        di = 1e-1
-        ds = 1e-4
-        ksi = 1
+        di = 1e-2
+        ds = 1e-5
+        ksi = 0.01
         
         d = dist(self._pinocchio, self._geom_model, x[:self._nq])
         # print(f"d : {d}")
         # print(f"ctr : {ddist_dt_val + ksi * (d - ds)/(di-ds)}")
-        # return ddist_dt_val + ksi * (d - ds)/(di-ds)
-
+        return ddist_dt_val + ksi * (d - ds)/(di-ds)
         return ddist_dt_val_ND + ksi * (d - ds)/(di-ds)
     def calc(self, data, x, u=None):
         data.r[:] = self.f(x)

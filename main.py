@@ -19,15 +19,15 @@ T = 10
 dt = 0.01
 
 # OBS CONSTANTS
-PLACEMENT_OBS = pin.SE3(pin.utils.rotate("x", np.pi/2), np.array([0, -0.0, 1.2]))
-DIM_OBS = [0.1, 0.15, 0.1]
+PLACEMENT_OBS = pin.SE3(pin.utils.rotate("y", np.pi/2) @ pin.utils.rotate("z", np.pi/2), np.array([0, 0.1, 1.2]))
+DIM_OBS = [0.1, 0.2, 0.1]
 
 # ELLIPS ON THE ROBOT
-PLACEMENT_ROB = pin.SE3(np.eye(3), np.array([0, 0, 0]))
-DIM_ROB =  [0.1, 0.1, 0.15]
+PLACEMENT_ROB = pin.SE3(np.eye(3), np.array([0, 0, 0.]))
+DIM_ROB =  [0.1, 0.1, 0.17]
 
 ### CREATING THE TARGET
-TARGET_POSE = pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.3, 1.2]))
+TARGET_POSE = pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.5, 1.2]))
 
 # Creating the robot
 robot_wrapper = PandaWrapper()
@@ -70,12 +70,15 @@ ddp = problem()
 
 ddp.solve()
 
+print("Solved")
+
 if args.save:
     np.save("results",np.concatenate(np.array(ddp.xs.tolist() + ddp.us.tolist())))
 
 
 viz.display(INITIAL_CONFIG)
 input()
-for xs in ddp.xs:
-    viz.display(np.array(xs[:7].tolist()))
-    input()
+while True:
+    for xs in ddp.xs:
+        viz.display(np.array(xs[:7].tolist()))
+        input() 
