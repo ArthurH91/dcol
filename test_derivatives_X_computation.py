@@ -44,7 +44,6 @@ class TestDistOpt(unittest.TestCase):
 
         cls.derivativeComputation = DerivativeComputation()
 
-
         cls.dh1_dx_ND = numdiff(
             lambda variable: cls.derivativeComputation.h1(variable, cls.center, cls.A1),
             cls.x,
@@ -62,22 +61,31 @@ class TestDistOpt(unittest.TestCase):
             cls.center,
         )
 
+        cls.dh1_R_ND = numdiff_rot(
+            lambda variable: cls.derivativeComputation.h1(cls.x, cls.center, variable),
+            cls.A1,
+        )
+        cls.dh2_R_ND = numdiff_rot(
+            lambda variable: cls.derivativeComputation.h2(cls.x, cls.center, variable),
+            cls.A2,
+        )
+
     def test_dh1_dx1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dx_ND[0,:3]
-                - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3,0]
+                cls.dh1_dx_ND[0, :3]
+                - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3, 0]
             ),
             0,
             places=5,
             msg="The value of the derivative of the hard constraint h1 w.r.t. the closest point 1 is not equal to the finite different one.",
         )
-        
+
     def test_dh1_dx2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dx_ND[0,3:]
-                - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3,1]
+                cls.dh1_dx_ND[0, 3:]
+                - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3, 1]
             ),
             0,
             places=5,
@@ -87,20 +95,19 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dx1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_dx_ND[0,:3]
-                - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3,0]
+                cls.dh2_dx_ND[0, :3]
+                - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3, 0]
             ),
             0,
             places=5,
             msg="The value of the derivative of the hard constraint h2 w.r.t. the closest point 1 is not equal to the finite different one.",
         )
 
-
     def test_dh2_dx2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_dx_ND[0,3:]
-                - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3,1]
+                cls.dh2_dx_ND[0, 3:]
+                - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3, 1]
             ),
             0,
             places=5,
@@ -110,8 +117,10 @@ class TestDistOpt(unittest.TestCase):
     def test_dh1_dcenter1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND[0,:3]
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[:3,0]
+                cls.dh1_dcenter_ND[0, :3]
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[
+                    :3, 0
+                ]
             ),
             0,
             places=5,
@@ -121,8 +130,10 @@ class TestDistOpt(unittest.TestCase):
     def test_dh1_dcenter2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND[0,3:]
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[:3,1]
+                cls.dh1_dcenter_ND[0, 3:]
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[
+                    :3, 1
+                ]
             ),
             0,
             places=5,
@@ -132,8 +143,10 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dcenter1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_dcenter_ND[0,:3]
-                - cls.derivativeComputation.dh2_dcenter(cls.x, cls.center, cls.A1)[:3,0]
+                cls.dh2_dcenter_ND[0, :3]
+                - cls.derivativeComputation.dh2_dcenter(cls.x, cls.center, cls.A1)[
+                    :3, 0
+                ]
             ),
             0,
             places=5,
@@ -143,38 +156,59 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dcenter2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND[0,3:]
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[:3,1]
+                cls.dh1_dcenter_ND[0, 3:]
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[
+                    :3, 1
+                ]
             ),
             0,
             places=5,
             msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoid 2is not equal to the finite different one.",
         )
-        
-    # def test_dh1_dR(cls):
 
-    #     cls.assertAlmostEqual(
-    #         np.linalg.norm(
-    #             cls.dh1_dcenter_ND
-    #             - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
-    #         ),
-    #         0,
-    #         places=5,
-    #         msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
-    #     )
+    def test_dh1_dR1(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dh1_R_ND
+                - cls.derivativeComputation.dh1_dR(cls.x, cls.center, cls.A1)[:3, 0]
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+        )
 
-    # def test_dh2_dR(cls):
+    def test_dh1_dR2(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                np.zeros(3)
+                - cls.derivativeComputation.dh1_dR(cls.x, cls.center, cls.A1)[:3, 1]
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+        )
 
-    #     cls.assertAlmostEqual(
-    #         np.linalg.norm(
-    #             cls.dh1_dcenter_ND
-    #             - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
-    #         ),
-    #         0,
-    #         places=5,
-    #         msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
-    #     )
-        
+    def test_dh2_dR1(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                np.zeros(3)
+                -cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)[:3, 0],
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+        )
+
+    def test_dh2_dR2(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dh2_R_ND
+                - cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)[:3, 1]
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+        )
 
 
 def numdiff(f, inX, h=1e-6):
@@ -189,5 +223,29 @@ def numdiff(f, inX, h=1e-6):
     return df_dx
 
 
+def numdiff_rot(f, inR, h=1e-6):
+    f0 = np.array(f(inR)).copy()
+    R = inR.copy()
+    df_dR = np.zeros(3)
+    for iw in range(3):
+        eps = np.zeros(3)
+        eps[iw] = h
+        R @= pin.exp3(eps)
+        df_dR[iw] = (f(R) - f0) / h
+        R = inR
+    return df_dR
+
+
+def example_function(R):
+    # Example function: trace of the rotation matrix
+    return np.trace(R)
+
+
 if __name__ == "__main__":
+
+    # R = np.eye(3)
+    # result = numdiff_rot(example_function, R)
+    # print(
+    #     "Numerical derivative with respect to the rotation matrix:\n", pin.exp3(result)
+    # )
     unittest.main()
