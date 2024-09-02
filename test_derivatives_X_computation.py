@@ -4,7 +4,6 @@ import numpy as np
 import hppfcl
 import pinocchio as pin
 
-from ellipsoid_optimization import EllipsoidOptimization
 from derivatives_X_computation import DerivativeComputation
 
 
