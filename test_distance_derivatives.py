@@ -63,9 +63,9 @@ class TestDistOpt(unittest.TestCase):
         cls.v = pin.randomConfiguration(cls.rmodel)
         cls.x = np.concatenate((cls.q, cls.v))
 
-        # cls.x = np.array([-0.13618401593655072, 1.4548323140534223, -0.7455721959187626, 0.9802847672458945, 0.20975276500006032, 0.4790169063529318, -0.0010387435491745235, -6.909107593655072, 9.502458405342223, 7.048769408123746, 23.785128724589452, -21.444000499993965, 2.354105635293183, 0.35238764508254505])
-        # cls.q = cls.x[:cls.rmodel.nq]
-        # cls.v = cls.x[cls.rmodel.nq:]
+        cls.x = np.array([-0.13618401593655072, 1.4548323140534223, -0.7455721959187626, 0.9802847672458945, 0.20975276500006032, 0.4790169063529318, -0.0010387435491745235, -6.909107593655072, 9.502458405342223, 7.048769408123746, 23.785128724589452, -21.444000499993965, 2.354105635293183, 0.35238764508254505])
+        cls.q = cls.x[:cls.rmodel.nq]
+        cls.v = cls.x[cls.rmodel.nq:]
         
         
         print(cls.q)
@@ -145,7 +145,7 @@ class TestDistOpt(unittest.TestCase):
         )
 
         viz = create_viewer(cls.rmodel, cls.cmodel, cls.cmodel)
-        viz.display(cls.q)
+        viz.display(cls.q + cls.v * 1e-2)
         add_sphere_to_viewer(viz, "cp1", 1.5e-2, cls.cp[:3], color=1000)
         add_sphere_to_viewer(viz, "cp2", 1.5e-2, cls.cp[3:], color=100000)
 

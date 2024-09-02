@@ -5,7 +5,7 @@ import numpy as np
 import pinocchio as pin
 import hppfcl
 
-from derivatives_computation import DerivativeComputation
+from derivatives_X_computation import DerivativeComputation
 
 
 def dist(rmodel, cmodel, q):

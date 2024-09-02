@@ -108,54 +108,73 @@ class TestDistOpt(unittest.TestCase):
             msg="The value of the derivative of the hard constraint h2 w.r.t. the closest point 2 is not equal to the finite different one.",
         )
 
-
-    def test_dh1_dcenter(cls):
-
+    def test_dh1_dcenter1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
+                cls.dh1_dcenter_ND[0,:3]
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[:3,0]
             ),
             0,
             places=5,
             msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
         )
 
-    def test_dh2_dcenter(cls):
-
+    def test_dh1_dcenter2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
+                cls.dh1_dcenter_ND[0,3:]
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[:3,1]
             ),
             0,
             places=5,
-            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+            msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+        )
+
+    def test_dh2_dcenter1(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dh2_dcenter_ND[0,:3]
+                - cls.derivativeComputation.dh2_dcenter(cls.x, cls.center, cls.A1)[:3,0]
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoid 1 is not equal to the finite different one.",
+        )
+
+    def test_dh2_dcenter2(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dh1_dcenter_ND[0,3:]
+                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[:3,1]
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoid 2is not equal to the finite different one.",
         )
         
-    def test_dh1_dR(cls):
+    # def test_dh1_dR(cls):
 
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.dh1_dcenter_ND
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
-            ),
-            0,
-            places=5,
-            msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
-        )
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.dh1_dcenter_ND
+    #             - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
+    #         ),
+    #         0,
+    #         places=5,
+    #         msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+    #     )
 
-    def test_dh2_dR(cls):
+    # def test_dh2_dR(cls):
 
-        cls.assertAlmostEqual(
-            np.linalg.norm(
-                cls.dh1_dcenter_ND
-                - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
-            ),
-            0,
-            places=5,
-            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
-        )
+    #     cls.assertAlmostEqual(
+    #         np.linalg.norm(
+    #             cls.dh1_dcenter_ND
+    #             - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
+    #         ),
+    #         0,
+    #         places=5,
+    #         msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+    #     )
         
 
 

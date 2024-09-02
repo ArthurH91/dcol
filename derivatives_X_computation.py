@@ -1,8 +1,6 @@
 ### This file defines a class used for the derivation of the movement of the closest points across the boundaries of the ellipsoids.
 
 import numpy as np
-import hppfcl
-
 
 class DerivativeComputation:
     """This class takes into input the center of the two ellipsoids and their radii and returns the derivative of the closest points with regards to the movement of the centers."""
@@ -26,13 +24,27 @@ class DerivativeComputation:
         center_1 = center[:3]
         dh1_dx_val[:,0] = A @ (x1 - center_1)
         return dh1_dx_val
-
+    
+    def dh2_dx(self, x, center, B):
+        dh2_dx_val = np.zeros((3,2))
+        x2 = x[3:]
+        center_2 = center[3:]
+        dh2_dx_val[:,1] = B @ (x2 - center_2)
+        return dh2_dx_val
+    
     def dh1_dcenter(self, x, center, A):
+        dh1_dcenter_val = np.zeros((3,2))
         x1 = x[:3]
         center_1 = center[:3]
-        g1 = -A @ (x1 - center_1)
-        g2 = np.zeros(3)
-        return np.concatenate((g1, g2))
+        dh1_dcenter_val[:,0] = -A @ (x1 - center_1)
+        return dh1_dcenter_val
+
+    def dh2_dcenter(self, x, center, B):
+        dh2_dcenter_val = np.zeros((3,2))
+        x2 = x[3:]
+        center_2 = center[3:]
+        dh2_dcenter_val[:,1] = -B @ (x2 - center_2)
+        return dh2_dcenter_val
 
     def dh1_dR(self, x, center, A):
         x1 = x[:3]
@@ -40,21 +52,6 @@ class DerivativeComputation:
         g1 = -A @ (x1 - center_1)
         g2 = np.zeros(3)
         return np.concatenate((g1, g2))
-
-
-    def dh2_dcenter(self, x, center, B):
-        x2 = x[3:]
-        center_2 = center[3:]
-        g1 = np.zeros(3)
-        g2 = -B @ (x2 - center_2)
-        return np.concatenate((g1, g2))
-
-    def dh2_dx(self, x, center, B):
-        dh2_dx_val = np.zeros((3,2))
-        x2 = x[3:]
-        center_2 = center[3:]
-        dh2_dx_val[:3,1] = B @ (x2 - center_2)
-        return dh2_dx_val
 
     def dh2_dR(self, x, center, B):
         x2 = x[3:]
