@@ -57,7 +57,7 @@ class DerivativeComputation:
         dh2_dR_val = np.zeros((3,2))
         x2 = x[:3]
         center_2 = center[:3]
-        dh2_dR_val[:,0] = (1/2) * (x2 - center_2).T @ (- pin.skew(A_2 @ (x2 - center_2)) + A_2 @ pin.skew(x2 - center_2))
+        dh2_dR_val[:,1] = (1/2) * (x2 - center_2).T @ (- pin.skew(A_2 @ (x2 - center_2)) + A_2 @ pin.skew(x2 - center_2))
         return dh2_dR_val
 
 
