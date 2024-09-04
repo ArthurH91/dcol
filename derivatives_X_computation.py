@@ -2,8 +2,9 @@
 
 import numpy as np
 import pinocchio as pin 
+
 class DerivativeComputation:
-    """This class takes into input the center of the two ellipsoids and their radii and returns the derivative of the closest points with regards to the movement of the centers."""
+    """This class computes the derivative of the constraints with regards to the centers of the ellipsoids (center = c1, c2), the closest points (x = x1,x2) and the orientations of the matrices (R = R1, R2)."""
 
     def __init__(self) -> None:
         pass
@@ -50,26 +51,14 @@ class DerivativeComputation:
         dh1_dR_val = np.zeros((3,2))
         x1 = x[:3]
         center_1 = center[:3]
-        dh1_dR_val[:,0] = (1/2) * (x1 - center_1).T @ (- pin.skew(A_1 @ (x1 - center_1)) + A_1 @ pin.skew(x1 - center_1))
+        dh1_dR_val[:,0] = (1/2) * (x1 - center_1).T @ (pin.skew(A_1 @ (x1 - center_1)) - A_1 @ pin.skew(x1 - center_1))
         return dh1_dR_val
 
     def dh2_dR(self, x, center, A_2):
         dh2_dR_val = np.zeros((3,2))
         x2 = x[:3]
         center_2 = center[:3]
-        dh2_dR_val[:,1] = (1/2) * (x2 - center_2).T @ (- pin.skew(A_2 @ (x2 - center_2)) + A_2 @ pin.skew(x2 - center_2))
+        dh2_dR_val[:,1] = (1/2) * (x2 - center_2).T @ ( pin.skew(A_2 @ (x2 - center_2)) - A_2 @ pin.skew(x2 - center_2))
         return dh2_dR_val
-
-    def dh1_dR(self, x, center, A_1):
-        dh1_dR_val = np.zeros((3,2))
-        x1 = x[:3]
-        center_1 = center[:3]
-        dh1_dR_val[:,0] = (1/2) * (x1 - center_1).T @ (- pin.skew(A_1 @ (x1 - center_1)) + A_1 @ pin.skew(x1 - center_1))
-        return dh1_dR_val
-
-    def dh2_dR(self, x, center, A_2):
-        dh2_dR_val = np.zeros((3,2))
-        x2 = x[:3]
-        center_2 = center[:3]
-        dh2_dR_val[:,1] = (1/2) * (x2 - center_2).T @ (- pin.skew(A_2 @ (x2 - center_2)) + A_2 @ pin.skew(x2 - center_2))
-        return dh2_dR_val
+    
+    

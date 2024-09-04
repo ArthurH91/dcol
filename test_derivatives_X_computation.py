@@ -236,16 +236,6 @@ def numdiff_rot(f, inR, h=1e-8):
     return df_dR
 
 
-def example_function(R):
-    # Example function: trace of the rotation matrix
-    return np.trace(R)
-
 
 if __name__ == "__main__":
-
-    R = np.eye(3)
-    result = numdiff_rot(example_function, R)
-    print(
-        "Numerical derivative with respect to the rotation matrix:\n", result
-    )
     unittest.main()
