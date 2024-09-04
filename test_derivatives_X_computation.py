@@ -33,14 +33,14 @@ class TestDistOpt(unittest.TestCase):
         cls.R_B = pin.SE3.Random().rotation
 
         # Calculate rotated matrices
-        cls.A1 = cls.R_A.T @ D1 @ cls.R_A
-        cls.A2 = cls.R_B.T @ D2 @ cls.R_B
+        cls.A1 = cls.R_A @ D1 @ cls.R_A.T
+        cls.A2 = cls.R_B @ D2 @ cls.R_B.T
 
         cls.x = np.random.random(6)
         cls.lambda_ = np.random.random(2)
 
-        cls.c1_SE3 = pin.SE3(rotation=cls.R_A.T, translation=cls.c1)
-        cls.c2_SE3 = pin.SE3(rotation=cls.R_B.T, translation=cls.c2)
+        cls.c1_SE3 = pin.SE3(rotation=cls.R_A, translation=cls.c1)
+        cls.c2_SE3 = pin.SE3(rotation=cls.R_B, translation=cls.c2)
 
         cls.derivativeComputation = DerivativeComputation()
 
@@ -223,7 +223,7 @@ def numdiff(f, inX, h=1e-6):
     return df_dx
 
 
-def numdiff_rot(f, inR, h=1e-6):
+def numdiff_rot(f, inR, h=1e-8):
     f0 = np.array(f(inR)).copy()
     R = inR.copy()
     df_dR = np.zeros(3)
@@ -243,9 +243,9 @@ def example_function(R):
 
 if __name__ == "__main__":
 
-    # R = np.eye(3)
-    # result = numdiff_rot(example_function, R)
-    # print(
-    #     "Numerical derivative with respect to the rotation matrix:\n", pin.exp3(result)
-    # )
+    R = np.eye(3)
+    result = numdiff_rot(example_function, R)
+    print(
+        "Numerical derivative with respect to the rotation matrix:\n", result
+    )
     unittest.main()
