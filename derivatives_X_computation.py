@@ -9,6 +9,30 @@ class DerivativeComputation:
 
     def __init__(self) -> None:
         pass
+    
+    def K(self, xlambda, center, A_1, A_2):
+        """Compute the Karush-Kuhn-Tucker (KKT) conditions."""
+        x = xlambda[:6]
+        lambda1 = xlambda[6]
+        lambda2 = xlambda[7]
+        K = np.zeros(8)
+        K[:6] = self.Lx(x, center, A_1, A_2, lambda1, lambda2)
+        K[6] = self.h1(x, center, A_1)
+        K[7] = self.h2(x, center, A_2)
+        return K
+
+    def M(self, xlambda, center, A_1, A_2):
+        """Compute the Hessian of the Lagrangian function."""
+        M = np.zeros((8, 8))
+        x = xlambda[:6]
+        lambda1 = xlambda[6]
+        lambda2 = xlambda[7]
+        M[:6, :6] = self.Lxx([lambda1, lambda2], A_1, A_2)
+        M[6, :6] = self.dh1_dx(x, center, A_1)
+        M[7, :6] = self.dh2_dx(x, center, A_2)
+        M[:6, 6] = self.dh1_dx(x, center, A_1).T
+        M[:6, 7] = self.dh2_dx(x, center, A_2).T
+        return M
 
     def L(self, x, center, A_1, A_2, lambda1, lambda2):
         """Compute the Lagrangian function."""
@@ -61,34 +85,34 @@ class DerivativeComputation:
 
     def dh1_dx(self, x, center, A_1):
         """Compute the derivative of the first constraint with respect to x."""
-        dh1_dx_val = np.zeros((3, 2))
+        dh1_dx_val = np.zeros(6)
         x1 = x[:3]
         center_1 = center[:3]
-        dh1_dx_val[:, 0] = A_1 @ (x1 - center_1)
+        dh1_dx_val[:3] = A_1 @ (x1 - center_1)
         return dh1_dx_val
 
     def dh2_dx(self, x, center, A_2):
         """Compute the derivative of the second constraint with respect to x."""
-        dh2_dx_val = np.zeros((3, 2))
+        dh2_dx_val = np.zeros(6)
         x2 = x[3:]
         center_2 = center[3:]
-        dh2_dx_val[:, 1] = A_2 @ (x2 - center_2)
+        dh2_dx_val[3:] = A_2 @ (x2 - center_2)
         return dh2_dx_val
 
     def dh1_dcenter(self, x, center, A_1):
         """Compute the derivative of the first constraint with respect to the center."""
-        dh1_dcenter_val = np.zeros((3, 2))
+        dh1_dcenter_val = np.zeros(6)
         x1 = x[:3]
         center_1 = center[:3]
-        dh1_dcenter_val[:, 0] = -A_1 @ (x1 - center_1)
+        dh1_dcenter_val[:3] = -A_1 @ (x1 - center_1)
         return dh1_dcenter_val
 
     def dh2_dcenter(self, x, center, A_2):
         """Compute the derivative of the second constraint with respect to the center."""
-        dh2_dcenter_val = np.zeros((3, 2))
+        dh2_dcenter_val = np.zeros(6)
         x2 = x[3:]
         center_2 = center[3:]
-        dh2_dcenter_val[:, 1] = -A_2 @ (x2 - center_2)
+        dh2_dcenter_val[3:] = -A_2 @ (x2 - center_2)
         return dh2_dcenter_val
 
     def dh1_dR(self, x, center, A_1):
