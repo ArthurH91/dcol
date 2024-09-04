@@ -44,6 +44,11 @@ class TestDistOpt(unittest.TestCase):
 
         cls.derivativeComputation = DerivativeComputation()
 
+
+        cls.dL_dx_ND = numdiff(
+            lambda variable: cls.derivativeComputation.lagrangian(variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]),
+            cls.x,
+        )
         cls.dh1_dx_ND = numdiff(
             lambda variable: cls.derivativeComputation.h1(variable, cls.center, cls.A1),
             cls.x,
@@ -70,10 +75,21 @@ class TestDistOpt(unittest.TestCase):
             cls.A2,
         )
 
+    def test_dL_dx(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.dL_dx_ND
+                - cls.derivativeComputation.dl_dx(cls.x, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1])
+            ),
+            0,
+            places=5,
+            msg="The value of the derivative of the Lagrangian w.r.t. x is not equal to the finite different one.",
+        )
+
     def test_dh1_dx1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dx_ND[0, :3]
+                cls.dh1_dx_ND[:3]
                 - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3, 0]
             ),
             0,
@@ -84,7 +100,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh1_dx2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dx_ND[0, 3:]
+                cls.dh1_dx_ND[3:]
                 - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3, 1]
             ),
             0,
@@ -95,7 +111,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dx1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_dx_ND[0, :3]
+                cls.dh2_dx_ND[:3]
                 - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3, 0]
             ),
             0,
@@ -106,7 +122,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dx2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_dx_ND[0, 3:]
+                cls.dh2_dx_ND[3:]
                 - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3, 1]
             ),
             0,
@@ -117,7 +133,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh1_dcenter1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND[0, :3]
+                cls.dh1_dcenter_ND[:3]
                 - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[
                     :3, 0
                 ]
@@ -130,7 +146,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh1_dcenter2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND[0, 3:]
+                cls.dh1_dcenter_ND[3:]
                 - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[
                     :3, 1
                 ]
@@ -143,7 +159,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dcenter1(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_dcenter_ND[0, :3]
+                cls.dh2_dcenter_ND[:3]
                 - cls.derivativeComputation.dh2_dcenter(cls.x, cls.center, cls.A1)[
                     :3, 0
                 ]
@@ -156,7 +172,7 @@ class TestDistOpt(unittest.TestCase):
     def test_dh2_dcenter2(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_dcenter_ND[0, 3:]
+                cls.dh1_dcenter_ND[3:]
                 - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)[
                     :3, 1
                 ]
@@ -211,14 +227,14 @@ class TestDistOpt(unittest.TestCase):
         )
 
 
-def numdiff(f, inX, h=1e-6):
+def numdiff(f, inX, h=1e-8):
     # Computes the Jacobian of a function returning a 1d array
     f0 = np.array(f(inX)).copy()
     x = inX.copy()
-    df_dx = np.zeros((f0.size, len(x)))
+    df_dx = np.zeros(len(x))
     for ix in range(len(x)):
         x[ix] += h
-        df_dx[:, ix] = (f(x) - f0) / h
+        df_dx[ix] = (f(x) - f0) / h
         x[ix] = inX[ix]
     return df_dx
 
