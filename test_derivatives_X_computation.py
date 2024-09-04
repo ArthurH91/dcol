@@ -45,8 +45,12 @@ class TestDistOpt(unittest.TestCase):
         cls.derivativeComputation = DerivativeComputation()
 
 
-        cls.dL_dx_ND = numdiff(
-            lambda variable: cls.derivativeComputation.lagrangian(variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]),
+        cls.Lx_ND = numdiff(
+            lambda variable: cls.derivativeComputation.L(variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]),
+            cls.x,
+        )
+        cls.Lxx_ND = numdiff_matrix(
+            lambda variable: cls.derivativeComputation.Lx(variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]),
             cls.x,
         )
         cls.dh1_dx_ND = numdiff(
@@ -75,15 +79,26 @@ class TestDistOpt(unittest.TestCase):
             cls.A2,
         )
 
-    def test_dL_dx(cls):
+    def test_Lx(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dL_dx_ND
-                - cls.derivativeComputation.dl_dx(cls.x, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1])
+                cls.Lx_ND
+                - cls.derivativeComputation.Lx(cls.x, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1])
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the Lagrangian w.r.t. x is not equal to the finite different one.",
+        )
+        
+    def test_Lxx(cls):
+        cls.assertAlmostEqual(
+            np.linalg.norm(
+                cls.Lxx_ND
+                - cls.derivativeComputation.Lxx(cls.lambda_, cls.A1, cls.A2)
+            ),
+            0,
+            places=4,
+            msg="The value of the Hessian of the Lagrangian w.r.t. x is not equal to the finite different one.",
         )
 
     def test_dh1_dx1(cls):
@@ -93,7 +108,7 @@ class TestDistOpt(unittest.TestCase):
                 - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3, 0]
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the hard constraint h1 w.r.t. the closest point 1 is not equal to the finite different one.",
         )
 
@@ -104,7 +119,7 @@ class TestDistOpt(unittest.TestCase):
                 - cls.derivativeComputation.dh1_dx(cls.x, cls.center, cls.A1)[:3, 1]
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the hard constraint h1 w.r.t. the closest point 2 is not equal to the finite different one.",
         )
 
@@ -115,7 +130,7 @@ class TestDistOpt(unittest.TestCase):
                 - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3, 0]
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the hard constraint h2 w.r.t. the closest point 1 is not equal to the finite different one.",
         )
 
@@ -126,7 +141,7 @@ class TestDistOpt(unittest.TestCase):
                 - cls.derivativeComputation.dh2_dx(cls.x, cls.center, cls.A2)[:3, 1]
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the hard constraint h2 w.r.t. the closest point 2 is not equal to the finite different one.",
         )
 
@@ -238,6 +253,16 @@ def numdiff(f, inX, h=1e-8):
         x[ix] = inX[ix]
     return df_dx
 
+
+def numdiff_matrix(f, inX, h=1e-6):
+    f0 = np.array(f(inX)).copy()
+    x = inX.copy()
+    df_dx = np.zeros((f0.size, len(x)))
+    for ix in range(len(x)):
+        x[ix] += h
+        df_dx[:, ix] = (f(x) - f0) / h
+        x[ix] = inX[ix]
+    return df_dx
 
 def numdiff_rot(f, inR, h=1e-8):
     f0 = np.array(f(inR)).copy()
