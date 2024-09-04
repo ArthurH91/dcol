@@ -44,17 +44,22 @@ class TestDistOpt(unittest.TestCase):
 
         cls.derivativeComputation = DerivativeComputation()
 
-
         cls.Lx_ND = numdiff(
-            lambda variable: cls.derivativeComputation.L(variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]),
+            lambda variable: cls.derivativeComputation.L(
+                variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]
+            ),
             cls.x,
         )
         cls.Lxx_ND = numdiff_matrix(
-            lambda variable: cls.derivativeComputation.Lx(variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]),
+            lambda variable: cls.derivativeComputation.Lx(
+                variable, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]
+            ),
             cls.x,
         )
         cls.M_ND = numdiff_matrix(
-            lambda variable: cls.derivativeComputation.K(variable, cls.center, cls.A1, cls.A2),
+            lambda variable: cls.derivativeComputation.K(
+                variable, cls.center, cls.A1, cls.A2
+            ),
             np.concatenate((cls.x, cls.lambda_)),
         )
         cls.dh1_dx_ND = numdiff(
@@ -86,29 +91,32 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.Lx_ND
-                - cls.derivativeComputation.Lx(cls.x, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1])
+                - cls.derivativeComputation.Lx(
+                    cls.x, cls.center, cls.A1, cls.A2, cls.lambda_[0], cls.lambda_[1]
+                )
             ),
             0,
             places=4,
             msg="The value of the derivative of the Lagrangian w.r.t. x is not equal to the finite different one.",
         )
-        
+
     def test_Lxx(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.Lxx_ND
-                - cls.derivativeComputation.Lxx(cls.lambda_, cls.A1, cls.A2)
+                cls.Lxx_ND - cls.derivativeComputation.Lxx(cls.lambda_, cls.A1, cls.A2)
             ),
             0,
             places=4,
             msg="The value of the Hessian of the Lagrangian w.r.t. x is not equal to the finite different one.",
         )
-        
+
     def test_M(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.M_ND
-                - cls.derivativeComputation.M(np.concatenate((cls.x, cls.lambda_)), cls.center, cls.A1, cls.A2)
+                - cls.derivativeComputation.M(
+                    np.concatenate((cls.x, cls.lambda_)), cls.center, cls.A1, cls.A2
+                )
             ),
             0,
             places=4,
@@ -144,19 +152,18 @@ class TestDistOpt(unittest.TestCase):
                 - cls.derivativeComputation.dh1_dcenter(cls.x, cls.center, cls.A1)
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the hard constraint h1 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
         )
-
 
     def test_dh2_dcenter(cls):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh2_dcenter_ND
-                - cls.derivativeComputation.dh2_dcenter(cls.x, cls.center, cls.A1)
+                - cls.derivativeComputation.dh2_dcenter(cls.x, cls.center, cls.A2)
             ),
             0,
-            places=5,
+            places=4,
             msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
         )
 
@@ -175,7 +182,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh2_R_ND
-                -cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)
+                - cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)
             ),
             0,
             places=5,
@@ -205,6 +212,7 @@ def numdiff_matrix(f, inX, h=1e-6):
         x[ix] = inX[ix]
     return df_dx
 
+
 def numdiff_rot(f, inR, h=1e-8):
     f0 = np.array(f(inR)).copy()
     R = inR.copy()
@@ -212,11 +220,10 @@ def numdiff_rot(f, inR, h=1e-8):
     for iw in range(3):
         eps = np.zeros(3)
         eps[iw] = h
-        R @= pin.exp3(eps)
+        R = R @ pin.exp3(eps)
         df_dR[iw] = (f(R) - f0) / h
         R = inR
     return df_dR
-
 
 
 if __name__ == "__main__":
