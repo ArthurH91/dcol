@@ -10,6 +10,9 @@ class DerivativeComputation:
     def __init__(self) -> None:
         pass
     
+    # def dist(self, center, A_1, A_2):
+        
+    
     def K(self, xlambda, center, A_1, A_2):
         """Compute the Karush-Kuhn-Tucker (KKT) conditions."""
         x = xlambda[:6]
@@ -33,6 +36,14 @@ class DerivativeComputation:
         M[:6, 6] = self.dh1_dx(x, center, A_1).T
         M[:6, 7] = self.dh2_dx(x, center, A_2).T
         return M
+    
+    def N(self, xlambda, center, A_1, A_2):
+        """Compute the Jacobian of the constraints."""
+        N = np.zeros((8, 6))
+        x = xlambda[:6]
+        N[6, :6] = self.dh1_dx(x, center, A_1)
+        N[7, :6] = self.dh2_dx(x, center, A_2)
+        return N
 
     def L(self, x, center, A_1, A_2, lambda1, lambda2):
         """Compute the Lagrangian function."""
@@ -70,6 +81,9 @@ class DerivativeComputation:
         H[:3, :3] =  np.eye(3) + lambda_1 * A_1
         H[3:, 3:] =  np.eye(3) + lambda_2 * A_2
         return H
+    
+    # def Lxeps(self, x, center, A_1, A_2, lambda1, lambda2):
+        
     
     def h1(self, x, center, A_1):
         """Compute the first constraint."""
@@ -117,24 +131,24 @@ class DerivativeComputation:
 
     def dh1_dR(self, x, center, A_1):
         """Compute the derivative of the first constraint with respect to the orientation."""
-        dh1_dR_val = np.zeros((3, 2))
+        dh1_dR_val = np.zeros(6)
         x1 = x[:3]
         center_1 = center[:3]
-        dh1_dR_val[:, 0] = (
+        dh1_dR_val[:3] = (
             (1 / 2)
             * (x1 - center_1).T
-            @ (-pin.skew(A_1 @ (x1 - center_1)) - A_1 @ pin.skew(x1 - center_1))
+            @ (-pin.skew(A_1 @ (x1 - center_1)) + A_1 @ pin.skew(x1 - center_1))
         )
         return dh1_dR_val
 
     def dh2_dR(self, x, center, A_2):
         """Compute the derivative of the second constraint with respect to the orientation."""
-        dh2_dR_val = np.zeros((3, 2))
+        dh2_dR_val = np.zeros(6)
         x2 = x[:3]
-        center_2 = center[:3]
-        dh2_dR_val[:, 1] = (
+        center_2 = center[3:]
+        dh2_dR_val[3:] = (
             (1 / 2)
             * (x2 - center_2).T
-            @ (-pin.skew(A_2 @ (x2 - center_2)) - A_2 @ pin.skew(x2 - center_2))
+            @ (-pin.skew(A_2 @ (x2 - center_2)) + A_2 @ pin.skew(x2 - center_2))
         )
         return dh2_dR_val

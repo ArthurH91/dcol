@@ -171,7 +171,7 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh1_R_ND
-                - cls.derivativeComputation.dh1_dR(cls.x, cls.center, cls.A1)
+                - cls.derivativeComputation.dh1_dR(cls.x, cls.center, cls.A1)[:3]
             ),
             0,
             places=5,
@@ -182,12 +182,14 @@ class TestDistOpt(unittest.TestCase):
         cls.assertAlmostEqual(
             np.linalg.norm(
                 cls.dh2_R_ND
-                - cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)
+                - cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)[3:]
             ),
             0,
             places=5,
             msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
         )
+        
+    
 
 
 def numdiff(f, inX, h=1e-8):
