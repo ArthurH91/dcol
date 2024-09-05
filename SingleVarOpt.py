@@ -188,7 +188,7 @@ class TestEllipsoidDistance(unittest.TestCase):
 
     def setUpWithoutRotation(self):
         """
-        Set up the test environment.
+        Set up the test environment without rotation.
         """
 
         self.R1 = pin.utils.rotate("z", 0.4701)
@@ -215,11 +215,11 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.x = opt.compute_x_at_opt(self.c1, self.R1, self.radii_1)
         self.d = opt.compute_distance_at_opt(self.c1, self.R1, self.radii_1)
         self.Ldot_ND = compute_L_dot_numdiff(self.radii_1, self.c1, self.R1, self.v, self.w)
-        self.Ldot = L_dot(self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2, self.v, self.w)
+        self.Ldot = compute_L_dot(self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2, self.v, self.w)
         
     def setUpWithRotation(self):
         """
-        Set up the test environment.
+        Set up the test environment with rotation.
         """
 
         self.R1 = pin.utils.rotate("z", 0.4701)
@@ -246,8 +246,10 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.x = opt.compute_x_at_opt(self.c1, self.R1, self.radii_1)
         self.d = opt.compute_distance_at_opt(self.c1, self.R1, self.radii_1)
         self.Ldot_ND = compute_L_dot_numdiff(self.radii_1, self.c1, self.R1, self.v, self.w)
-        self.Ldot = L_dot(self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2, self.v, self.w)
-
+        self.Ldot = compute_L_dot(self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2, self.v, self.w)
+        self.ddot_ND = compute_d_dot_numdiff(self.radii_1, self.c1, self.R1, self.v, self.w)
+        self.ddot = compute_d_dot(self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2, self.v, self.w)
+        
     def test_compare_hppfcl_qcqp(self):
         """
         Compare the results from HPPFCL and QCQP solver.
@@ -289,33 +291,23 @@ class TestEllipsoidDistance(unittest.TestCase):
             places=3,
             msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
         )
-
-
-
-def radii_to_matrix(radii):
-    """
-    Converts ellipsoid radii to the matrix representation.
-
-    Parameters:
-    a (float): Radius along the x-axis.
-    b (float): Radius along the y-axis.
-    c (float): Radius along the z-axis.
-
-    Returns:
-    numpy.ndarray: 3x3 matrix representation of the ellipsoid.
-    """
-    return np.array(
-        [
-            [1 / radii[0] ** 2, 0, 0],
-            [0, 1 / radii[1] ** 2, 0],
-            [0, 0, 1 / radii[2] ** 2],
-        ]
-    )
+    
+    def test_ddot_with_rotation(self):
+        """
+        Test the derivative of the distance between the closest points with regards to time.
+        """
+        self.setUpWithRotation()
+        self.assertAlmostEqual(
+            np.linalg.norm(self.ddot_ND - self.ddot),
+            0,
+            places=3,
+            msg="The value of the derivative of the distance w.r.t. time is not equal to the finite different one.",
+        )
 
 
 
 def closest_points(radii1, radii2, c1, c2, R1, R2):
-
+    """ Compute the closest points between two ellipsoids."""
     radii1 = radii1
     radii2 = radii2
     c1 = c1
@@ -348,7 +340,7 @@ def closest_points(radii1, radii2, c1, c2, R1, R2):
 
 
 def distance(radii1, radii2, c1, c2, R1, R2):
-
+    """ Compute the distance between two ellipsoids. """
     radii1 = radii1
     radii2 = radii2
     c1 = c1
@@ -377,7 +369,7 @@ def distance(radii1, radii2, c1, c2, R1, R2):
     )
     return hppfcl_distance
 
-def L_dot(radii1, radii2, c1, c2, R1, R2, v, w):
+def compute_L_dot(radii1, radii2, c1, c2, R1, R2, v, w):
     """ Compute the derivative of the Lagrangian function with regards to time.
     """
 
@@ -387,7 +379,16 @@ def L_dot(radii1, radii2, c1, c2, R1, R2, v, w):
     Ldot = Lc@v + Lr@w
     return Ldot
 
+def compute_d_dot(radii1, radii2, c1, c2, R1, R2, v, w):
+    """ Compute the derivative of the distance between the closest points with regards to time.
+    """
+    d = distance(radii1, radii2, c1, c2, R1, R2)
+    Ldot = compute_L_dot(radii1, radii2, c1, c2, R1, R2, v, w)
+    return Ldot/d
+
 def compute_L_dot_numdiff(radii1, c1, R1, v, w, dt = 1e-6):
+    """ Compute the derivative of the Lagrangian function with regards to time using finite differences.
+    """
     
     opt = EllipsoidOptimization()
     L = opt.compute_Lagrangian_at_opt(c1, R1, radii1, v, w)
@@ -400,7 +401,43 @@ def compute_L_dot_numdiff(radii1, c1, R1, v, w, dt = 1e-6):
     Ldot_ND = (next_L - L) / dt
     
     return Ldot_ND 
+
+def compute_d_dot_numdiff(radii1, c1, R1, v, w, dt = 1e-6):
+    """ Compute the derivative of the distance between the closest points with regards to time using finite differences.
+    """
+    opt = EllipsoidOptimization()
+    d = opt.compute_distance_at_opt(c1, R1, radii1)
     
+    R1plus = pin.exp(w * dt) @ R1
+    cplus = c1 + v * dt
+    
+    opt = EllipsoidOptimization()
+    next_d = opt.compute_distance_at_opt(cplus, R1plus, radii1)
+    
+    ddot_ND = (next_d - d) / dt
+    return ddot_ND
+
+def radii_to_matrix(radii):
+    """
+    Converts ellipsoid radii to the matrix representation.
+
+    Parameters:
+    a (float): Radius along the x-axis.
+    b (float): Radius along the y-axis.
+    c (float): Radius along the z-axis.
+
+    Returns:
+    numpy.ndarray: 3x3 matrix representation of the ellipsoid.
+    """
+    return np.array(
+        [
+            [1 / radii[0] ** 2, 0, 0],
+            [0, 1 / radii[1] ** 2, 0],
+            [0, 0, 1 / radii[2] ** 2],
+        ]
+    )
+
+
 
 if __name__ == "__main__":
     unittest.main()
