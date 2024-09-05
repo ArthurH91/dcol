@@ -25,22 +25,23 @@ class TestDistOpt(unittest.TestCase):
         cls.shape2 = hppfcl.Ellipsoid(*cls.radiiB)
 
         # Construct matrices A and B for ellipsoid constraints
-        D1 = np.diag([1 / r**2 for r in cls.radiiA])
-        D2 = np.diag([1 / r**2 for r in cls.radiiB])
+        cls.D1 = np.diag([1 / r**2 for r in cls.radiiA])
+        cls.D2 = np.diag([1 / r**2 for r in cls.radiiB])
 
         # Generate random rotation matrices using Pinocchio
-        cls.R_A = pin.SE3.Random().rotation
-        cls.R_B = pin.SE3.Random().rotation
+        cls.R_1 = pin.SE3.Random().rotation
+        cls.R_2 = pin.SE3.Random().rotation
 
         # Calculate rotated matrices
-        cls.A1 = cls.R_A @ D1 @ cls.R_A.T
-        cls.A2 = cls.R_B @ D2 @ cls.R_B.T
+        cls.A1 = cls.R_1 @ cls.D1 @ cls.R_1.T
+        cls.A2 = cls.R_2 @ cls.D2 @ cls.R_2.T
 
         cls.x = np.random.random(6)
         cls.lambda_ = np.random.random(2)
 
-        cls.c1_SE3 = pin.SE3(rotation=cls.R_A, translation=cls.c1)
-        cls.c2_SE3 = pin.SE3(rotation=cls.R_B, translation=cls.c2)
+        cls.c1_SE3 = pin.SE3(rotation=cls.R_1, translation=cls.c1)
+        cls.c2_SE3 = pin.SE3(rotation=cls.R_2, translation=cls.c2)
+        
 
         cls.derivativeComputation = DerivativeComputation()
 
@@ -168,10 +169,16 @@ class TestDistOpt(unittest.TestCase):
         )
 
     def test_dh1_dR(cls):
+        
+        w = np.random.random(3)
+        dt = 1e-6
+        ht = cls.derivativeComputation.h1(cls.x, cls.center, cls.A1)
+        ht_plus = cls.derivativeComputation.h1(cls.x, cls.center, pin.exp3(w * dt) @ cls.R_1 @  cls.D1 @ (pin.exp3(w * dt) @ cls.R_1).T)
+        dhdt = cls.derivativeComputation.dh1_dR(cls.x, cls.center, cls.A1)[:3].T @ w
+        
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh1_R_ND
-                - cls.derivativeComputation.dh1_dR(cls.x, cls.center, cls.A1)[:3]
+                (ht - ht_plus) / dt - dhdt
             ),
             0,
             places=5,
@@ -179,16 +186,21 @@ class TestDistOpt(unittest.TestCase):
         )
 
     def test_dh2_dR(cls):
+        
+        w = np.random.random(3)
+        dt = 1e-6
+        ht = cls.derivativeComputation.h2(cls.x, cls.center, cls.A2)
+        ht_plus = cls.derivativeComputation.h2(cls.x, cls.center, cls.R_2 @ pin.exp3(w * dt) @ cls.D2 @ cls.R_2.T)
+        dhdt = cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)[:3].T @ w
+        
         cls.assertAlmostEqual(
             np.linalg.norm(
-                cls.dh2_R_ND
-                - cls.derivativeComputation.dh2_dR(cls.x, cls.center, cls.A2)[3:]
+                (ht - ht_plus) / dt - dhdt
             ),
             0,
             places=5,
-            msg="The value of the derivative of the hard constraint h2 w.r.t. the center of the ellipsoids is not equal to the finite different one.",
+            msg="The value of the derivative of the hard constraint h1 w.r.t. the rotations of the ellipsoids is not equal to the finite different one.",
         )
-        
     
 
 
@@ -222,7 +234,7 @@ def numdiff_rot(f, inR, h=1e-8):
     for iw in range(3):
         eps = np.zeros(3)
         eps[iw] = h
-        R = R @ pin.exp3(eps)
+        R =pin.exp3(eps) @ R
         df_dR[iw] = (f(R) - f0) / h
         R = inR
     return df_dR
