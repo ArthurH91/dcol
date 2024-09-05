@@ -7,6 +7,7 @@ import numpy as np
 import casadi
 import pinocchio as pin
 
+
 class EllipsoidOptimization:
     """
     Class for setting up and solving an optimization problem for ellipsoids using CasADi.
@@ -30,8 +31,8 @@ class EllipsoidOptimization:
         c1=np.ones(3),
         R1=np.eye((3)),
         radii1=np.ones(3),
-        v1 = np.zeros(3),
-        w1 = np.zeros(3),
+        v1=np.zeros(3),
+        w1=np.zeros(3),
     ):
         """
         Set up the optimization problem.
@@ -42,21 +43,21 @@ class EllipsoidOptimization:
             x0_2 (np.ndarray, optional): Center of the second ellipsoid. Defaults to 3*np.ones(3).
             B (np.ndarray, optional): Shape matrix of the second ellipsoid. Defaults to np.array([np.ones((3, 3))]).
         """
-        
+
         self.c1 = c1
         self.R1 = R1
         self.D1 = radii_to_matrix(radii1)
         self.A1 = self.R1 @ self.D1 @ self.R1.T
         self.v1 = v1
         self.w1 = w1
-        
+
         # Define the cost function (distance between closest points)
-        self.totalcost = (1 / 2) * casadi.sumsqr(self.x1 )
+        self.totalcost = (1 / 2) * casadi.sumsqr(self.x1)
 
         # Define the constraints for the ellipsoids
         self.con1 = (self.x1 - c1).T @ self.A1 @ (self.x1 - c1) / 2 == 1 / 2
         self.opti.subject_to(self.con1)
-        
+
     def solve_problem(self, warm_start_primal=None):
         """
         Solve the optimization problem.
@@ -69,7 +70,7 @@ class EllipsoidOptimization:
             "acceptable_tol": 1e-4,
             "max_iter": 300,
         }
-        self.opti.solver("ipopt", {},s_opt)
+        self.opti.solver("ipopt", {}, s_opt)
 
         self.opti.minimize(self.totalcost)
 
@@ -93,7 +94,7 @@ class EllipsoidOptimization:
         Get the optimal values of the decision variables.
 
         Returns:
-            tuple: Optimal values of x1 and x2.
+            Optimal value of x1.
         """
         x1_sol = self.opti.value(self.x1)
         return x1_sol
@@ -116,7 +117,7 @@ class EllipsoidOptimization:
         """
         con1_dual = self.opti.value(self.opti.dual(self.con1))
         return con1_dual
-    
+
     def get_distance(self):
         """
         Get the distance between the closest points.
@@ -124,7 +125,63 @@ class EllipsoidOptimization:
         Returns:
             float: Distance between the closest points.
         """
-        return (2 * self.opti.value(self.totalcost))**0.5
+        return (2 * self.opti.value(self.totalcost)) ** 0.5
+
+    def get_lagrangian_value_at_opt(self):
+        """
+        Get the value of the Lagrangian function at the optimal solution.
+
+        Returns:
+            float: Value of the Lagrangian function at the optimal solution.
+        """
+
+        return self.opti.value(self.totalcost)
+
+    def compute_x_at_opt(
+        self,
+        c1=np.ones(3),
+        R1=np.eye((3)),
+        radii1=np.ones(3),
+        v1=np.zeros(3),
+        w1=np.zeros(3),
+    ):
+        """ Compute the optimal value of x.
+
+        Returns:
+            np.array: Optimal value of x.
+        """
+        self.setup_problem(c1, R1, radii1, v1, w1)
+        self.solve_problem()
+        return self.get_optimal_values()
+
+    def compute_distance_at_opt(
+        self, c1=np.ones(3), R1=np.eye((3)), radii1=np.ones(3), v1=np.zeros(3), w1=np.zeros(3)
+    ):
+        """ Compute the distance between the closest points at the optimal solution.
+
+        Returns:
+            float: Distance between the closest points at the optimal solution.
+        """
+        self.setup_problem(c1, R1, radii1, v1, w1)
+        self.solve_problem()
+        return self.get_distance()  
+        
+    def compute_Lagrangian_at_opt(
+        self,
+        c1=np.ones(3),
+        R1=np.eye((3)),
+        radii1=np.ones(3),
+        v1=np.zeros(3),
+        w1=np.zeros(3),
+    ):
+        """ Compute the value of the Lagrangian function at the optimal solution.
+        
+        Returns:
+            float: Value of the Lagrangian function at the optimal solution.
+        """
+        self.setup_problem(c1, R1, radii1, v1, w1)
+        self.solve_problem()
+        return self.get_lagrangian_value_at_opt()
 
 
 def radii_to_matrix(radii):
@@ -146,120 +203,206 @@ def radii_to_matrix(radii):
             [0, 0, 1 / radii[2] ** 2],
         ]
     )
-    
-    
+
+
+def distance(radii1, radii2, c1, c2, R1, R2):
+
+    radii1 = radii1
+    radii2 = radii2
+    c1 = c1
+    c2 = c2
+    R1 = R1
+    R2 = R2
+
+    ellipsoid1 = hppfcl.Ellipsoid(*radii1)
+    ellipsoid2 = hppfcl.Ellipsoid(*radii2)
+
+    ellipsoid1_pose = pin.SE3(rotation=R1, translation=np.array(c1))
+    ellipsoid2_pose = pin.SE3(rotation=R2, translation=np.array(c2))
+
+    request = hppfcl.DistanceRequest()
+    request.gjk_max_iterations = 20000
+    request.abs_err = 0
+    request.gjk_tolerance = 1e-9
+    result = hppfcl.DistanceResult()
+    hppfcl_distance = hppfcl.distance(
+        ellipsoid1,
+        ellipsoid1_pose,
+        ellipsoid2,
+        ellipsoid2_pose,
+        request,
+        result,
+    )
+    return hppfcl_distance
+
+
+def closest_points(radii1, radii2, c1, c2, R1, R2):
+
+    radii1 = radii1
+    radii2 = radii2
+    c1 = c1
+    c2 = c2
+    R1 = R1
+    R2 = R2
+
+    ellipsoid1 = hppfcl.Ellipsoid(*radii1)
+    ellipsoid2 = hppfcl.Ellipsoid(*radii2)
+
+    ellipsoid1_pose = pin.SE3(rotation=R1, translation=np.array(c1))
+    ellipsoid2_pose = pin.SE3(rotation=R2, translation=np.array(c2))
+
+    request = hppfcl.DistanceRequest()
+    request.gjk_max_iterations = 20000
+    request.abs_err = 0
+    request.gjk_tolerance = 1e-9
+    result = hppfcl.DistanceResult()
+    _ = hppfcl.distance(
+        ellipsoid1,
+        ellipsoid1_pose,
+        ellipsoid2,
+        ellipsoid2_pose,
+        request,
+        result,
+    )
+    closest_point_1 = result.getNearestPoint1()
+    closest_point_2 = result.getNearestPoint2()
+    return closest_point_1, closest_point_2
+
+
 class TestEllipsoidDistance(unittest.TestCase):
     """
     Unit test class for EllipsoidOptimization.
     """
 
-    def setUp(self):
+    def setUpWithoutRotation(self):
         """
         Set up the test environment.
         """
 
-        
-        R = pin.utils.rotate('z',.4701)
-        D = np.diagflat([14.13,5.34,1])
-        A, c = R@D@R.T, np.array([ .9,1.6,0 ]) 
-        v,w = np.r_[.1,.2,0], np.r_[0,0,0]
+        self.R1 = pin.utils.rotate("z", 0.4701)
+        self.R2 = np.eye(3)
+
 
         # Define initial positions for the centers of the two ellipsoids
-        self.x0_1 = c
-        self.x0_2 = [0, 0, 0]
+        self.c1 = np.array([0.9, 1.6, 0])
+        self.c2 = [0, 0, 0]
+
+        # Speed of the ellipsoid 1
+        v, w = np.r_[0.1, 0.2, 0], np.r_[0, 0, 0]
 
         # Define the radii for the ellipsoids
-        self.radii_1 = [(1/14.13)**0.5,1/5.34**0.5,1]
+        self.radii_1 = [(1 / 14.13) ** 0.5, 1 / 5.34**0.5, 1]
         self.radii_2 = [1e-4, 1e-4, 1e-4]
 
         # Define the matrices representing the ellipsoids
         self.A = radii_to_matrix(self.radii_1)
         self.B = radii_to_matrix(self.radii_2)
 
-        # Add some rotation
-        self.R1 = R
-        self.R2 = np.eye(3)
-        
-        # Create HPPFCL ellipsoid objects and their corresponding collision objects
-        self.ellipsoid_1 = hppfcl.Ellipsoid(
-            self.radii_1[0], self.radii_1[1], self.radii_1[2]
-        )
-        self.ellipsoid_2 = hppfcl.Ellipsoid(
-            self.radii_2[0], self.radii_2[1], self.radii_2[2]
-        )
-        self.ellipsoid_1_pose = pin.SE3(rotation=self.R1, translation= np.array(self.x0_1))
-        self.ellipsoid_2_pose = pin.SE3(rotation=self.R2, translation= np.array(self.x0_2))
-        
 
         opt = EllipsoidOptimization()
-        opt.setup_problem(c, self.R1, self.radii_1, v, w)
-        opt.solve_problem()
-        self.sol_x = opt.get_optimal_values()
-        sol_lam = opt.get_dual_values()
-        sol_f = opt.get_minimum_cost()
-        self.sol_d = opt.get_distance()
-        sol_L = sol_f
-        
+        self.x = opt.compute_x_at_opt(self.c1, self.R1, self.radii_1, v, w)
+        L = opt.compute_Lagrangian_at_opt(self.c1, self.R1, self.radii_1, v, w)
+        self.d = opt.compute_distance_at_opt(self.c1, self.R1, self.radii_1, v, w)
         dt = 1e-6
-        Rplus = pin.exp(w*dt)@R
-        cplus = c+v*dt
-        Aplus = Rplus@D@Rplus.T
-        
+        R1plus = pin.exp(w * dt) @ self.R1
+        cplus = self.c1 + v * dt
         
         opt = EllipsoidOptimization()
-        opt.setup_problem(cplus, Rplus, self.radii_1, v, w)
-        opt.solve_problem()
-        next_sol_x = opt.get_optimal_values()
-        next_sol_lam = opt.get_dual_values()
-        next_sol_f = opt.get_minimum_cost()
-        next_sol_d = opt.get_distance()
-        next_sol_L = next_sol_f
+        self.next_x = opt.compute_x_at_opt(cplus, R1plus, self.radii_1, v, w)
+        next_L = opt.compute_Lagrangian_at_opt(cplus, R1plus, self.radii_1, v, w)
         
-            
-        self.Ldot_ND = (next_sol_L-sol_L)/dt
-        self.Ldot = self.sol_x@v
+        self.Ldot_ND = (next_L - L) / dt
+        self.Ldot = self.x @ v
+
+    def setUpWithRotation(self):
+        """
+        Set up the test environment.
+        """
+
+        self.R1 = pin.utils.rotate("z", 0.4701)
+        self.R2 = np.eye(3)
+
+
+        # Define initial positions for the centers of the two ellipsoids
+        self.c1 = np.array([0.9, 1.6, 0])
+        self.c2 = [0, 0, 0]
+
+        # Speed of the ellipsoid 1
+        v, w = np.r_[0.1, 0.2, 0], np.r_[0, 0, 3.3]
+
+        # Define the radii for the ellipsoids
+        self.radii_1 = [(1 / 14.13) ** 0.5, 1 / 5.34**0.5, 1]
+        self.radii_2 = [1e-4, 1e-4, 1e-4]
+
+        # Define the matrices representing the ellipsoids
+        self.A = radii_to_matrix(self.radii_1)
+        self.B = radii_to_matrix(self.radii_2)
+
+
+        opt = EllipsoidOptimization()
+        self.x = opt.compute_x_at_opt(self.c1, self.R1, self.radii_1, v, w)
+        L = opt.compute_Lagrangian_at_opt(self.c1, self.R1, self.radii_1, v, w)
+        self.d = opt.compute_distance_at_opt(self.c1, self.R1, self.radii_1, v, w)
+        dt = 1e-6
+        R1plus = pin.exp(w * dt) @ self.R1
+        cplus = self.c1 + v * dt
+        
+        opt = EllipsoidOptimization()
+        self.next_x = opt.compute_x_at_opt(cplus, R1plus, self.radii_1, v, w)
+        next_L = opt.compute_Lagrangian_at_opt(cplus, R1plus, self.radii_1, v, w)
+        
+        self.Ldot_ND = (next_L - L) / dt
+        self.Ldot = self.x @ v
+
+        self.Ldot_ND = (next_L - L) / dt
+        Lr = np.cross(self.x, self.c1)
+        Lc = self.x
+
+        self.Ldot = Lc @ v + Lr @ w
+
 
     def test_compare_hppfcl_qcqp(self):
         """
         Compare the results from HPPFCL and QCQP solver.
         """
+        self.setUpWithoutRotation()
         # Use HPPFCL to compute the distance and closest points between the two ellipsoids
-        request = hppfcl.DistanceRequest()
-        request.gjk_max_iterations = 20000
-        request.abs_err = 0
-        request.gjk_tolerance = 1e-9
-        result = hppfcl.DistanceResult()
-        hppfcl_distance = hppfcl.distance(
-            self.ellipsoid_1,
-            self.ellipsoid_1_pose,
-            self.ellipsoid_2,
-            self.ellipsoid_2_pose,
-            request,
-            result,
+        hppfcl_distance = distance(
+            self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2
         )
-
-        closest_point_1_hppfcl = result.getNearestPoint1()
+        closest_point_1_hppfcl = closest_points(
+            self.radii_1, self.radii_2, self.c1, self.c2, self.R1, self.R2
+        )[0]
         # Compare the results from HPPFCL and QCQP
         self.assertAlmostEqual(
-            hppfcl_distance, self.sol_d, places=3, msg="Distances are not equal"
+            hppfcl_distance, self.d, places=3, msg="Distances are not equal"
         )
-        np.testing.assert_almost_equal(closest_point_1_hppfcl, self.sol_x, decimal=5)
+        np.testing.assert_almost_equal(closest_point_1_hppfcl, self.x, decimal=5)
 
     def test_Ldot(self):
         """
         Test the derivative of the Lagrangian function with regards to time.
         """
-        
+        self.setUpWithoutRotation()
         self.assertAlmostEqual(
-            np.linalg.norm(
-                self.Ldot_ND
-                - self.Ldot
-            ),
+            np.linalg.norm(self.Ldot_ND - self.Ldot),
             0,
             places=4,
             msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
         )
-        
+
+    def test_Ldot_with_rotation(self):
+        """
+        Test the derivative of the Lagrangian function with regards to time.
+        """
+        self.setUpWithRotation()
+        self.assertAlmostEqual(
+            np.linalg.norm(self.Ldot_ND - self.Ldot),
+            0,
+            places=4,
+            msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
-
