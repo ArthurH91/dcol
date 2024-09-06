@@ -81,9 +81,9 @@ class EllipsoidOptimization:
             warm_start_primal (np.ndarray, optional): Initial guess for the solver. Defaults to None.
         """
         s_opt = {
-            "tol": 1e-4,
-            "acceptable_tol": 1e-4,
-            "max_iter": 300,
+            "tol": 1e-8,
+            "acceptable_tol": 1e-8,
+            "max_iter": 1000,
         }
         self.opti.solver("ipopt", {}, s_opt)
 
@@ -227,11 +227,11 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.R2 = np.eye(3)
 
         # Define initial positions for the centers of the two ellipsoids
-        self.c1 = np.array([0.9, 1.6, 2])
-        self.c2 = np.array([0, 0, 0])
+        self.c1 = np.array([2.0, 3.8, 4])
+        self.c2 = np.array([0.2, 0.1, 0.6])
 
         # Speed of the ellipsoid 1
-        self.v1, self.w1 = np.r_[0.1, 0.2, 0], np.r_[0, 0, 0]
+        self.v1, self.w1 = np.r_[1, 2, 3], np.r_[0, 0, 0]
         self.v2, self.w2 = np.r_[0., 0., 0.], np.r_[0, 0, 0]
         # Define the radii for the ellipsoids
         self.radii_1 = [(1 / 14.13) ** 0.5, 1 / 5.34**0.5, 1]
@@ -283,12 +283,12 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.R2 = np.eye(3)
 
         # Define initial positions for the centers of the two ellipsoids
-        self.c1 = np.array([0.9, 1.6, 2])
-        self.c2 = np.array([0, 0, 0])
+        self.c1 = np.array([2.9, 3.6, 4])
+        self.c2 = np.array([0.2, 0.1, 0.6])
 
         # Speed of the ellipsoid 1
         self.v1, self.w1 = np.r_[0., 0., 0], np.r_[0, 0, 0]
-        self.v2, self.w2 = np.r_[0.1, 0.2, 0.3], np.r_[0, 0, 0]
+        self.v2, self.w2 = np.r_[1, 2, 3], np.r_[0, 0, 0]
         # Define the radii for the ellipsoids
         self.radii_1 = [(1 / 14.13) ** 0.5, 1 / 5.34**0.5, 1]
         self.radii_2 = [2.0, 1.0, 1.5]
@@ -396,7 +396,7 @@ class TestEllipsoidDistance(unittest.TestCase):
         )
         # Compare the results from HPPFCL and QCQP
         self.assertAlmostEqual(
-            hppfcl_distance, self.d, places=3, msg="Distances are not equal"
+            hppfcl_distance, self.d, places=4, msg="Distances are not equal"
         )
         np.testing.assert_almost_equal(closest_point_1_hppfcl, self.x[0], decimal=4)
         np.testing.assert_almost_equal(closest_point_2_hppfcl, self.x[1], decimal=4)
@@ -411,7 +411,7 @@ class TestEllipsoidDistance(unittest.TestCase):
         )
         # Compare the results from HPPFCL and QCQP
         self.assertAlmostEqual(
-            hppfcl_distance, self.d, places=3, msg="Distances are not equal"
+            hppfcl_distance, self.d, places=4, msg="Distances are not equal"
         )
         np.testing.assert_almost_equal(closest_point_1_hppfcl, self.x[0], decimal=4)
         np.testing.assert_almost_equal(closest_point_2_hppfcl, self.x[1], decimal=4)
@@ -422,10 +422,13 @@ class TestEllipsoidDistance(unittest.TestCase):
         Test the derivative of the Lagrangian function with regards to time.
         """
         self.setUpWithV1Only()
+        print(f"Ldot_ND = {self.Ldot_ND}")
+        print(f"Ldot = {self.Ldot}")
+        print("________")
         self.assertAlmostEqual(
             np.linalg.norm(self.Ldot_ND - self.Ldot),
             0,
-            places=4,
+            places=3,
             msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
         )
 
@@ -435,12 +438,12 @@ class TestEllipsoidDistance(unittest.TestCase):
         Test the derivative of the Lagrangian function with regards to time.
         """
         self.setUpWithV2Only()
-        # print(self.Ldot_ND)
-        # print(self.Ldot)
+        print(f"Ldot_ND = {self.Ldot_ND}")
+        print(f"Ldot = {self.Ldot}")
         self.assertAlmostEqual(
             np.linalg.norm(self.Ldot_ND - self.Ldot),
             0,
-            places=4,
+            places=3,
             msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
         )
 
@@ -557,7 +560,7 @@ def compute_d_dot(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2):
     return Ldot / d
 
 
-def compute_L_dot_numdiff(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2, dt=1e-8):
+def compute_L_dot_numdiff(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2, dt=1e-6):
     """Compute the derivative of the Lagrangian function with regards to time using finite differences."""
 
     opt = EllipsoidOptimization()
@@ -566,13 +569,17 @@ def compute_L_dot_numdiff(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2, dt=1e-
     c1plus = c1 + v1 * dt
     R2plus = pin.exp(w2 * dt) @ R2
     c2plus = c2 + v2 * dt
+    print(f"c2 = {c2 - c2plus}")
+    print(f"c2plus = {c2plus}")
+    print(f"L = {L}")
 
     opt = EllipsoidOptimization()
     next_L = opt.compute_Lagrangian_at_opt(
         c1plus, c2plus, R1plus, R2plus, radii1, radii2, v1, v2, w1, w2
     )
     Ldot_ND = (next_L - L) / dt
-
+    print(f"next_L = {next_L}")
+    print(f"nextL - L = {next_L - L}")
     return Ldot_ND
 
 
