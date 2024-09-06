@@ -272,7 +272,29 @@ class TestEllipsoidDistance(unittest.TestCase):
             self.w1,
             self.w2,
         )
-        
+        self.ddot_ND = compute_d_dot_numdiff(
+            self.c1,
+            self.c2,
+            self.R1,
+            self.R2,
+            self.radii_1,
+            self.radii_2,
+            self.v1,
+            self.v2,
+            self.w1,
+            self.w2,        )
+        self.ddot = compute_d_dot(
+            self.c1,
+            self.c2,
+            self.R1,
+            self.R2,
+            self.radii_1,
+            self.radii_2,
+            self.v1,
+            self.v2,
+            self.w1,
+            self.w2,
+        )
         
     def setUpWithV2Only(self):
         """
@@ -329,6 +351,30 @@ class TestEllipsoidDistance(unittest.TestCase):
             self.w2,
         )
         
+        self.ddot_ND = compute_d_dot_numdiff(
+            self.c1,
+            self.c2,
+            self.R1,
+            self.R2,
+            self.radii_1,
+            self.radii_2,
+            self.v1,
+            self.v2,
+            self.w1,
+            self.w2,        )
+        self.ddot = compute_d_dot(
+            self.c1,
+            self.c2,
+            self.R1,
+            self.R2,
+            self.radii_1,
+            self.radii_2,
+            self.v1,
+            self.v2,
+            self.w1,
+            self.w2,
+        )
+        
     def setUpWithVOnly(self):
         """
         Set up the test environment without rotation.
@@ -372,6 +418,30 @@ class TestEllipsoidDistance(unittest.TestCase):
             self.w2,
         )
         self.Ldot = compute_L_dot(
+            self.c1,
+            self.c2,
+            self.R1,
+            self.R2,
+            self.radii_1,
+            self.radii_2,
+            self.v1,
+            self.v2,
+            self.w1,
+            self.w2,
+        )
+        
+        self.ddot_ND = compute_d_dot_numdiff(
+            self.c1,
+            self.c2,
+            self.R1,
+            self.R2,
+            self.radii_1,
+            self.radii_2,
+            self.v1,
+            self.v2,
+            self.w1,
+            self.w2,        )
+        self.ddot = compute_d_dot(
             self.c1,
             self.c2,
             self.R1,
@@ -494,14 +564,23 @@ class TestEllipsoidDistance(unittest.TestCase):
         Test the derivative of the Lagrangian function with regards to time.
         """
         self.setUpWithV1Only()
-        print(f"Ldot_ND = {self.Ldot_ND}")
-        print(f"Ldot = {self.Ldot}")
-        print("________")
         self.assertAlmostEqual(
             np.linalg.norm(self.Ldot_ND - self.Ldot),
             0,
             places=3,
             msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
+        )
+    
+    def test_ddot_WithV1Only(self):
+        """
+        Test the derivative of the distance between the closest points with regards to time.
+        """
+        self.setUpWithV1Only()
+        self.assertAlmostEqual(
+            np.linalg.norm(self.ddot_ND - self.ddot),
+            0,
+            places=3,
+            msg="The value of the derivative of the distance w.r.t. time is not equal to the finite different one.",
         )
 
 
@@ -510,8 +589,6 @@ class TestEllipsoidDistance(unittest.TestCase):
         Test the derivative of the Lagrangian function with regards to time.
         """
         self.setUpWithV2Only()
-        print(f"Ldot_ND = {self.Ldot_ND}")
-        print(f"Ldot = {self.Ldot}")
         self.assertAlmostEqual(
             np.linalg.norm(self.Ldot_ND - self.Ldot),
             0,
@@ -524,8 +601,6 @@ class TestEllipsoidDistance(unittest.TestCase):
         Test the derivative of the Lagrangian function with regards to time.
         """
         self.setUpWithVOnly()
-        print(f"Ldot_ND = {self.Ldot_ND}")
-        print(f"Ldot = {self.Ldot}")
         self.assertAlmostEqual(
             np.linalg.norm(self.Ldot_ND - self.Ldot),
             0,
@@ -546,17 +621,7 @@ class TestEllipsoidDistance(unittest.TestCase):
     #         msg="The value of the derivative of the Lagrangian function w.r.t. time is not equal to the finite different one.",
     #     )
 
-    # def test_ddot_with_rotation(self):
-    #     """
-    #     Test the derivative of the distance between the closest points with regards to time.
-    #     """
-    #     self.setUpWithRotation()
-    #     self.assertAlmostEqual(
-    #         np.linalg.norm(self.ddot_ND - self.ddot),
-    #         0,
-    #         places=3,
-    #         msg="The value of the derivative of the distance w.r.t. time is not equal to the finite different one.",
-    #     )
+
 
 
 def closest_points(c1, c2, R1, R2, radii1, radii2):
@@ -641,7 +706,7 @@ def compute_L_dot(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2):
 
 def compute_d_dot(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2):
     """Compute the derivative of the distance between the closest points with regards to time."""
-    d = distance(radii1, radii2, c1, c2, R1, R2)
+    d = distance(c1, c2, R1, R2, radii1, radii2)
     Ldot = compute_L_dot(c1, c2, R1, R2, radii1, radii2, v1, w1, v2, w2)
     return Ldot / d
 
@@ -655,17 +720,11 @@ def compute_L_dot_numdiff(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2, dt=1e-
     c1plus = c1 + v1 * dt
     R2plus = pin.exp(w2 * dt) @ R2
     c2plus = c2 + v2 * dt
-    print(f"c2 = {c2 - c2plus}")
-    print(f"c2plus = {c2plus}")
-    print(f"L = {L}")
-
     opt = EllipsoidOptimization()
     next_L = opt.compute_Lagrangian_at_opt(
         c1plus, c2plus, R1plus, R2plus, radii1, radii2, v1, v2, w1, w2
     )
     Ldot_ND = (next_L - L) / dt
-    print(f"next_L = {next_L}")
-    print(f"nextL - L = {next_L - L}")
     return Ldot_ND
 
 
