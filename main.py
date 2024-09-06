@@ -38,17 +38,8 @@ cmodel = scene.create_scene(cmodel, scene=args.scene)
 
 viz = create_viewer(rmodel, cmodel, vmodel)
 # INITIAL_CONFIG = pin.neutral(rmodel)
-INITIAL_CONFIG = np.array(
-    [
-        -0.06709294,
-        1.35980773,
-        -0.81605989,
-        0.74243348,
-        0.42419277,
-        0.45547585,
-        -0.00456262,
-    ]
-)
+INITIAL_CONFIG = scene.get_initial_config(scene=args.scene)
+
 viz.display(INITIAL_CONFIG)
 add_sphere_to_viewer(viz, "goal", 5e-2, TARGET_POSE.translation, color=100000)
 

@@ -95,6 +95,43 @@ class Scene:
             raise ValueError("Scene not implemented")
         return cmodel
 
+    def get_initial_config(self, scene=1):
+        """
+        Get the initial configuration of the robot based on the specified `scene` number.
+        Parameters:
+            scene (int, optional): The scene number. Defaults to 1.
+        Returns:
+            np.ndarray: The initial configuration of the robot.
+        Raises:
+            ValueError: If the specified `scene` is not implemented.
+        """
+
+        if scene == 1:
+            return np.array(
+                [
+                    -0.06709294,
+                    1.35980773,
+                    -0.81605989,
+                    0.74243348,
+                    0.42419277,
+                    0.45547585,
+                    -0.00456262,
+                ]
+            )
+        elif scene == 2:
+            return np.array(
+                [
+                    -0.06709294,
+                    1.35980773,
+                    -0.81605989,
+                    0.74243348,
+                    0.42419277,
+                    0.45547585,
+                    -0.00456262,
+                ]
+            )
+        else:
+            raise ValueError("Scene not implemented")
 
 def add_ellipsoid(
     cmodel: pin.GeometryModel,
