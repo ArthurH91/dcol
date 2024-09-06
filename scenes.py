@@ -132,6 +132,24 @@ class Scene:
             )
         else:
             raise ValueError("Scene not implemented")
+        
+    def get_target_pose(self, scene=1):
+        """
+        Get the target pose based on the specified `scene` number.
+        Parameters:
+            scene (int, optional): The scene number. Defaults to 1.
+        Returns:
+            pin.SE3: The target pose.
+        Raises:
+            ValueError: If the specified `scene` is not implemented.
+        """
+
+        if scene == 1:
+            return pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.5, 1.2]))
+        elif scene == 2:
+            return pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.5, 1.2]))
+        else:
+            raise ValueError("Scene not implemented")
 
 def add_ellipsoid(
     cmodel: pin.GeometryModel,

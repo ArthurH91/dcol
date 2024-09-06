@@ -20,15 +20,12 @@ parser.add_argument(
 parser.add_argument("-sc", "--scene", type=int, help="An integer argument")
 args = parser.parse_args()
 
+
 ### PARAMETERS
 # Number of nodes of the trajectory
 T = 10
 # Time step between each node
 dt = 0.01
-
-
-### CREATING THE TARGET
-TARGET_POSE = pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.5, 1.2]))
 
 # Creating the robot
 robot_wrapper = PandaWrapper()
@@ -37,8 +34,8 @@ scene = Scene()
 cmodel = scene.create_scene(cmodel, scene=args.scene)
 
 viz = create_viewer(rmodel, cmodel, vmodel)
-# INITIAL_CONFIG = pin.neutral(rmodel)
 INITIAL_CONFIG = scene.get_initial_config(scene=args.scene)
+TARGET_POSE = scene.get_target_pose(scene=args.scene)
 
 viz.display(INITIAL_CONFIG)
 add_sphere_to_viewer(viz, "goal", 5e-2, TARGET_POSE.translation, color=100000)
