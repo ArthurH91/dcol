@@ -28,9 +28,10 @@ class OCPPandaReachingColWithMultipleCol:
         WEIGHT_GRIPPER_POSE=10,
         WEIGHT_GRIPPER_POSE_TERM=10,
         WEIGHT_LIMIT=1e-1,
-        SAFETY_THRESHOLD=5e-5*0,
+        SAFETY_THRESHOLD=5e-3*0,
         max_qp_iters=1000,
         callbacks=False,
+        velocity_collision = True 
     ) -> None:
         """Creating the class for optimal control problem of a panda robot reaching for a target while taking a collision between a given previously given shape of the robot and an obstacle into consideration.
 
@@ -60,6 +61,7 @@ class OCPPandaReachingColWithMultipleCol:
         self._x0 = x0
         self._max_qp_iters = max_qp_iters
         self._callbacks = callbacks
+        self.velocity_collision = velocity_collision
 
         # Weights
         self._WEIGHT_xREG = WEIGHT_xREG
@@ -124,12 +126,16 @@ class OCPPandaReachingColWithMultipleCol:
         # Creating the residual
 
         for col_idx in range(len(self._cmodel.collisionPairs)):
-            # obstacleDistanceResidual = ResidualDistanceCollision(
-                # self._state, 7,self._cmodel, col_idx
-            # )
-            obstacleDistanceResidual = ResidualModelVelocityAvoidance(
+            
+            if self.velocity_collision:
+                obstacleDistanceResidual = ResidualModelVelocityAvoidance(
                 self._state, self._cmodel, col_idx
             )
+            else:
+                obstacleDistanceResidual = ResidualDistanceCollision(
+                    self._state, 7,self._cmodel, col_idx
+                )
+
             # Creating the inequality constraint
             constraint = crocoddyl.ConstraintModelResidual(
                 self._state,

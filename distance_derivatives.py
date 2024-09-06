@@ -324,6 +324,60 @@ def ddist_dt(rmodel, cmodel, x: np.ndarray):
     d_dot = L_dot / distance
     return d_dot
 
+def ddist_dt_V2(rmodel, cmodel, x: np.ndarray):
+    """Computing the derivative of the distance w.r.t. time.
+
+    Args:
+        rmodel (_type_): _description_
+        cmodel (_type_): _description_
+        x (np.ndarray): _description_
+    """
+
+    q = x[: rmodel.nq]
+    v = x[rmodel.nq :]
+
+    # Creating the data models
+    rdata = rmodel.createData()
+    cdata = cmodel.createData()
+
+    # Updating the position of the joints & the geometry objects.
+    pin.forwardKinematics(rmodel, rdata, q, v)
+    pin.updateFramePlacements(rmodel, rdata)
+    pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
+
+    # Poses and geometries of the shapes
+    shape1_name = "obstacle"
+    shape1_id = cmodel.getGeometryId(shape1_name)
+    shape1 = cmodel.geometryObjects[shape1_id]
+    shape1_placement = cdata.oMg[shape1_id]
+
+    shape2_name = "ellips_rob"
+    shape2_id = cmodel.getGeometryId(shape2_name)
+    shape2 = cmodel.geometryObjects[shape2_id]
+    shape2_placement = cdata.oMg[shape2_id]
+    
+    distance = dist(rmodel, cmodel, q)
+    closest_points = cp(rmodel, cmodel, q)
+    x1 = closest_points[:3]
+    x2 = closest_points[3:]
+
+    c1 = shape1_placement.translation
+    c2 = shape2_placement.translation
+
+    v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+    v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+
+    w1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
+    w2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
+    
+    Lc = (x1 - x2).T
+    Lr1 = c1.T @ pin.skew(x2 - x1) + x2.T @ pin.skew(x1)
+    Lr2 = c2.T @ pin.skew(x1 - x2) + x1.T @ pin.skew(x2)
+
+    Ldot = Lc @ (v1 - v2) + Lr1 @ w1 + Lr2 @ w2            
+    d_dot = Ldot / distance
+    return d_dot
+
 def ddist_dq(rmodel, cmodel, q):
     """Computing the derivative of the distance w.r.t. the configuration of the robot.
 

@@ -1,4 +1,5 @@
 import argparse
+import json
 
 import pinocchio as pin
 import numpy as np
@@ -9,7 +10,9 @@ from OCP import OCPPandaReachingColWithMultipleCol
 
 ### Parser
 parser = argparse.ArgumentParser(description="Parser to select the scenario.")
-parser.add_argument("-s","--save", action="store_true", help="Save the solutions in a .npy file.")
+parser.add_argument("-s","--save", action="store_true", help="Save the solutions in a .json file.")
+parser.add_argument("-v","--vel", action="store_true", help="Use the velocity constraint")
+
 args = parser.parse_args()
 
 ### PARAMETERS
@@ -64,7 +67,8 @@ problem = OCPPandaReachingColWithMultipleCol(
     callbacks=True,
     WEIGHT_GRIPPER_POSE=200,
     WEIGHT_GRIPPER_POSE_TERM=1000,
-    max_qp_iters=10000
+    max_qp_iters=10000,
+    velocity_collision=args.vel
 )
 ddp = problem()
 
@@ -73,7 +77,20 @@ ddp.solve()
 print("Solved")
 
 if args.save:
-    np.save("results",np.concatenate(np.array(ddp.xs.tolist() + ddp.us.tolist())))
+    col = "distance"
+    if args.vel:
+        col = "velocity"
+    
+    data = {
+        'xs': [array.tolist() for array in ddp.xs.tolist()], 
+        'us': [array.tolist() for array in ddp.us.tolist()],
+        'target': TARGET_POSE.translation.tolist(),
+        'obstacle': PLACEMENT_OBS.translation.tolist(),
+        'obstacle_dim': DIM_OBS,
+        'rob_dim': DIM_ROB,
+    }
+    with open("results/results" + col + ".json", 'w') as json_file:
+        json.dump(data, json_file, indent=6)
 
 
 viz.display(INITIAL_CONFIG)

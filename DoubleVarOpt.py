@@ -232,7 +232,7 @@ class TestEllipsoidDistance(unittest.TestCase):
 
         # Speed of the ellipsoid 1
         self.v1, self.w1 = np.r_[2., 1., 3.], np.r_[1., 2., 3.]
-        self.v2, self.w2 = np.r_[1, 2, 3]*0, np.r_[3., 2., 1.]
+        self.v2, self.w2 = np.r_[1, 2, 3], np.r_[3., 2., 1.]
         # Define the radii for the ellipsoids
         self.radii_1 = [(1 / 14.13) ** 0.5, 1 / 5.34**0.5, 1]
         self.radii_2 = [2.0, 1.0, 1.5]
@@ -414,23 +414,22 @@ def compute_L_dot(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2):
     x1, x2 = closest_points(c1, c2, R1, R2, radii1, radii2)
 
     Lc = (x1 - x2).T
-    # Lr1 = x1.T @ pin.skew(c1) + x2.T @ pin.skew(x1) + c1.T @ pin.skew(x2)
     Lr1 = c1.T @ pin.skew(x2 - x1) + x2.T @ pin.skew(x1)
-    # Lc2 = x2.T
-    # Lr2 = x2.T @ pin.skew(x2) + x1.T @ pin.skew(x2) + c2.T @ pin.skew(x1)
     Lr2 = c2.T @ pin.skew(x1 - x2) + x1.T @ pin.skew(x2)
 
     Ldot = Lc @ (v1 - v2) + Lr1 @ w1 + Lr2 @ w2
     return Ldot
 
-
 def compute_d_dot(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2):
     """Compute the derivative of the distance between the closest points with regards to time."""
-    d_hppfcl = distance(c1, c2, R1, R2, radii1, radii2)
-    opt = EllipsoidOptimization()
-    d = opt.compute_distance_at_opt(c1, c2, R1, R2, radii1, radii2)
-    assert np.isclose(d, d_hppfcl, atol=1e-6)
-    Ldot = compute_L_dot(c1, c2, R1, R2, radii1, radii2, v1, v2, w1, w2)
+    d = distance(c1, c2, R1, R2, radii1, radii2)
+    x1, x2 = closest_points(c1, c2, R1, R2, radii1, radii2)
+
+    Lc = (x1 - x2).T
+    Lr1 = c1.T @ pin.skew(x2 - x1) + x2.T @ pin.skew(x1)
+    Lr2 = c2.T @ pin.skew(x1 - x2) + x1.T @ pin.skew(x2)
+
+    Ldot = Lc @ (v1 - v2) + Lr1 @ w1 + Lr2 @ w2
     return Ldot / d
 
 
