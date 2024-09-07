@@ -15,11 +15,15 @@ parser.add_argument(
     "-s", "--save", action="store_true", help="Save the solutions in a .json file."
 )
 parser.add_argument(
+    "-d", "--disablecol", action="store_true", help="Do not use collision avoidance."
+)
+parser.add_argument(
     "-v", "--vel", action="store_true", help="Use the velocity constraint"
 )
 parser.add_argument("-sc", "--scene", type=int, help="An integer argument")
 args = parser.parse_args()
 
+print(args.disablecol)
 
 ### PARAMETERS
 # Number of nodes of the trajectory
@@ -55,6 +59,7 @@ problem = OCPPandaReachingColWithMultipleCol(
     WEIGHT_GRIPPER_POSE=200,
     WEIGHT_GRIPPER_POSE_TERM=1000,
     max_qp_iters=10000,
+    disable_collision=args.disablecol,
     velocity_collision=args.vel,
 )
 ddp = problem()
@@ -62,6 +67,14 @@ ddp = problem()
 ddp.solve()
 
 print("Solved")
+
+onstacles_pose_translation = [placement.translation.tolist() for placement in scene.PLACEMENT_OBS]
+onstacles_pose_rotation = [placement.rotation.tolist() for placement in scene.PLACEMENT_OBS]
+
+dims_obs = [obs for obs in scene.DIM_OBS]
+dims_rob = [rob for rob in scene.DIM_ROB]
+
+collision_pairs = [[col.first, col.second] for col in cmodel.collisionPairs]
 
 if args.save:
     col = "distance"
@@ -71,12 +84,20 @@ if args.save:
     data = {
         "xs": [array.tolist() for array in ddp.xs.tolist()],
         "us": [array.tolist() for array in ddp.us.tolist()],
-        "target": TARGET_POSE.translation.tolist(),
-        "obstacle": scene.PLACEMENT_OBS.translation.tolist(),
-        "obstacle_dim": scene.DIM_OBS,
-        "rob_dim": scene.DIM_ROB,
+        "target_pose_translation": TARGET_POSE.translation.tolist(),
+        "target_pose_rotation": TARGET_POSE.rotation.tolist(),
+        "obstacle_pose_translation": onstacles_pose_translation,
+        "obstacle_pose_rotation": onstacles_pose_rotation,
+        "obstacle_dim": dims_obs,
+        "rob_dim": dims_rob,
+        "T": T,
+        "collision_pairs": collision_pairs,
     }
-    with open("results/results" + col + ".json", "w") as json_file:
+    if args.disablecol:
+        name = "results_nocol"
+    else:
+        name = "results" + col
+    with open("results/" + name + ".json", "w") as json_file:
         json.dump(data, json_file, indent=6)
 
 

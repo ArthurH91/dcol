@@ -31,6 +31,7 @@ class OCPPandaReachingColWithMultipleCol:
         SAFETY_THRESHOLD=5e-3*0,
         max_qp_iters=1000,
         callbacks=False,
+        disable_collision = False,
         velocity_collision = True 
     ) -> None:
         """Creating the class for optimal control problem of a panda robot reaching for a target while taking a collision between a given previously given shape of the robot and an obstacle into consideration.
@@ -61,6 +62,7 @@ class OCPPandaReachingColWithMultipleCol:
         self._x0 = x0
         self._max_qp_iters = max_qp_iters
         self._callbacks = callbacks
+        self.disable_collision = disable_collision
         self.velocity_collision = velocity_collision
 
         # Weights
@@ -124,34 +126,35 @@ class OCPPandaReachingColWithMultipleCol:
             self._state, self._actuation.nu
         )
         # Creating the residual
+        if not self.disable_collision:
+            print('collision avoidance')
+            for col_idx in range(len(self._cmodel.collisionPairs)):
+                
+                if self.velocity_collision:
+                    obstacleDistanceResidual = ResidualModelVelocityAvoidance(
+                    self._state, self._cmodel, col_idx
+                )
+                else:
+                    obstacleDistanceResidual = ResidualDistanceCollision(
+                        self._state, 7,self._cmodel, col_idx
+                    )
 
-        for col_idx in range(len(self._cmodel.collisionPairs)):
-            
-            if self.velocity_collision:
-                obstacleDistanceResidual = ResidualModelVelocityAvoidance(
-                self._state, self._cmodel, col_idx
-            )
-            else:
-                obstacleDistanceResidual = ResidualDistanceCollision(
-                    self._state, 7,self._cmodel, col_idx
+                # Creating the inequality constraint
+                constraint = crocoddyl.ConstraintModelResidual(
+                    self._state,
+                    obstacleDistanceResidual,
+                    # np.zeros(1),
+                    np.array([self._SAFETY_THRESHOLD]),
+                    np.array([np.inf]),
                 )
 
-            # Creating the inequality constraint
-            constraint = crocoddyl.ConstraintModelResidual(
-                self._state,
-                obstacleDistanceResidual,
-                # np.zeros(1),
-                np.array([self._SAFETY_THRESHOLD]),
-                np.array([np.inf]),
-            )
-
-            # Adding the constraint to the constraint manager
-            self._runningConstraintModelManager.addConstraint(
-                "col_" + str(col_idx), constraint
-            )
-            self._terminalConstraintModelManager.addConstraint(
-                "col_term_" + str(col_idx), constraint
-            )
+                # Adding the constraint to the constraint manager
+                self._runningConstraintModelManager.addConstraint(
+                    "col_" + str(col_idx), constraint
+                )
+                self._terminalConstraintModelManager.addConstraint(
+                    "col_term_" + str(col_idx), constraint
+                )
 
         # Adding costs to the models
         self._runningCostModel.addCost("stateReg", xRegCost, self._WEIGHT_xREG)
@@ -178,16 +181,6 @@ class OCPPandaReachingColWithMultipleCol:
             self._terminalConstraintModelManager,
         )
         
-        # self._running_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(self._running_DAM, True)
-        # self._terminal_DAM_ND = crocoddyl.DifferentialActionModelNumDiff(self._terminal_DAM, True)
-
-        # Create Integrated Action Model (IAM), i.e. Euler integration of continuous dynamics and cost
-        # self._runningModel = crocoddyl.IntegratedActionModelEuler(
-        #     self._running_DAM_ND, self._dt
-        # )
-        # self._terminalModel = crocoddyl.IntegratedActionModelEuler(
-        #     self._terminal_DAM_ND, 0.0
-        # )
         self._runningModel = crocoddyl.IntegratedActionModelEuler(
             self._running_DAM, self._dt
         )
