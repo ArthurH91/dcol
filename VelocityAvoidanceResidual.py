@@ -101,23 +101,16 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
 
         # Poses and geometries of the shapes
-        shape1_name = "obstacle"
-        shape1_id = cmodel.getGeometryId(shape1_name)
-        shape1 = cmodel.geometryObjects[shape1_id]
-        shape1_placement = cdata.oMg[shape1_id]
-
-        shape2_name = "ellips_rob"
-        shape2_id = cmodel.getGeometryId(shape2_name)
-        shape2 = cmodel.geometryObjects[shape2_id]
-        shape2_placement = cdata.oMg[shape2_id]
+        shape1_placement = cdata.oMg[self._shape1_id]
+        shape2_placement = cdata.oMg[self._shape2_id]
         
         
         req = hppfcl.DistanceRequest()
         res = hppfcl.DistanceResult()
         distance = hppfcl.distance(
-            shape1.geometry,
+            self._shape1.geometry,
             shape1_placement,
-            shape2.geometry,
+            self._shape2.geometry,
             shape2_placement,
             req,
             res,
@@ -128,11 +121,10 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         c1 = shape1_placement.translation
         c2 = shape2_placement.translation
 
-        v1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
-        v2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
-
-        w1 = pin.getFrameVelocity(rmodel, rdata, shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
-        w2 = pin.getFrameVelocity(rmodel, rdata, shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
+        v1 = pin.getFrameVelocity(rmodel, rdata, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+        v2 = pin.getFrameVelocity(rmodel, rdata, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
+        w1 = pin.getFrameVelocity(rmodel, rdata, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
+        w2 = pin.getFrameVelocity(rmodel, rdata, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
         
         Lc = (x1 - x2).T
         Lr1 = c1.T @ pin.skew(x2 - x1) + x2.T @ pin.skew(x1)
