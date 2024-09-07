@@ -2,8 +2,9 @@ import numpy as np
 
 import crocoddyl
 import pinocchio as pin
-import hppfcl 
-from distance_derivatives import dddist_dt_dq, dist, ddist_dq
+import hppfcl
+from distance_derivatives import dist
+
 
 class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
     """Class computing the residual of the collision constraint. This residual is simply the signed distance between the two closest points of the 2 shapes."""
@@ -64,23 +65,55 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
 
         # Shape 2 parent joint
         self._shape2_parentJoint = self._shape2.parentJoint
-        
+
         self.alpha = 10
 
-    
     def f(self, x):
-        ddist_dt_val = self.ddist_dt_V2(self._pinocchio, self._geom_model,x)
-        
+        ddist_dt_val = self.ddist_dt(self._pinocchio, self._geom_model, x)
+
         di = 1e-2
         ds = 1e-5
         ksi = 0.01
-        
-        d = dist(self._pinocchio, self._geom_model, x[:self._nq])
-        return ddist_dt_val + ksi * (d - ds)/(di-ds)
-    
-    
-    
-    def ddist_dt_V2(self,rmodel, cmodel, x: np.ndarray):
+
+        d = self.dist(self._pinocchio, self._geom_model, x)
+        return ddist_dt_val + ksi * (d - ds) / (di - ds)
+
+    def dist(self, rmodel, cmodel, x: np.ndarray):
+        """Computing the distance between the two shapes.
+
+        Args:
+            rmodel (_type_): _description_
+            cmodel (_type_): _description_
+            x (np.ndarray): _description_
+        """
+        q = x[: rmodel.nq]
+        v = x[rmodel.nq :]
+
+        # Creating the data models
+        rdata = rmodel.createData()
+        cdata = cmodel.createData()
+
+        # Updating the position of the joints & the geometry objects.
+        pin.forwardKinematics(rmodel, rdata, q, v)
+        pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
+
+        # Poses and geometries of the shapes
+        shape1_placement = cdata.oMg[self._shape1_id]
+        shape2_placement = cdata.oMg[self._shape2_id]
+
+        req = hppfcl.DistanceRequest()
+        res = hppfcl.DistanceResult()
+        distance = hppfcl.distance(
+            self._shape1.geometry,
+            shape1_placement,
+            self._shape2.geometry,
+            shape2_placement,
+            req,
+            res,
+        )
+        return distance
+
+    def ddist_dt(self, rmodel, cmodel, x: np.ndarray):
         """Computing the derivative of the distance w.r.t. time.
 
         Args:
@@ -103,8 +136,7 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         # Poses and geometries of the shapes
         shape1_placement = cdata.oMg[self._shape1_id]
         shape2_placement = cdata.oMg[self._shape2_id]
-        
-        
+
         req = hppfcl.DistanceRequest()
         res = hppfcl.DistanceResult()
         distance = hppfcl.distance(
@@ -121,26 +153,35 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         c1 = shape1_placement.translation
         c2 = shape2_placement.translation
 
-        v1 = pin.getFrameVelocity(rmodel, rdata, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
-        v2 = pin.getFrameVelocity(rmodel, rdata, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).linear
-        w1 = pin.getFrameVelocity(rmodel, rdata, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
-        w2 = pin.getFrameVelocity(rmodel, rdata, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED).angular
-        
+        v1 = pin.getFrameVelocity(
+            rmodel, rdata, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED
+        ).linear
+        v2 = pin.getFrameVelocity(
+            rmodel, rdata, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED
+        ).linear
+        w1 = pin.getFrameVelocity(
+            rmodel, rdata, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED
+        ).angular
+        w2 = pin.getFrameVelocity(
+            rmodel, rdata, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED
+        ).angular
+
         Lc = (x1 - x2).T
         Lr1 = c1.T @ pin.skew(x2 - x1) + x2.T @ pin.skew(x1)
         Lr2 = c2.T @ pin.skew(x1 - x2) + x1.T @ pin.skew(x2)
 
-        Ldot = Lc @ (v1 - v2) + Lr1 @ w1 + Lr2 @ w2            
+        Ldot = Lc @ (v1 - v2) + Lr1 @ w1 + Lr2 @ w2
         d_dot = Ldot / distance
         return d_dot
 
     def calc(self, data, x, u=None):
         data.r[:] = self.f(x)
-        
+
     def calcDiff(self, data, x, u=None):
         nd = numdiff(self.f, x)
         data.Rx[:] = nd
-        
+
+
 def numdiff(f, q, h=1e-6):
     j_diff = np.zeros(len(q))
     fx = f(q)
@@ -149,5 +190,7 @@ def numdiff(f, q, h=1e-6):
         e[i] = h
         j_diff[i] = (f(q + e) - fx) / e[i]
     return j_diff
+
+
 if __name__ == "__main__":
     pass
