@@ -27,7 +27,7 @@ print(args.disablecol)
 
 ### PARAMETERS
 # Number of nodes of the trajectory
-T = 10
+T = 40
 # Time step between each node
 dt = 0.01
 
@@ -56,13 +56,18 @@ problem = OCPPandaReachingColWithMultipleCol(
     dt,
     x0,
     callbacks=True,
-    WEIGHT_GRIPPER_POSE=200,
+    WEIGHT_xREG=5e-2,
+    WEIGHT_GRIPPER_POSE=10,
     WEIGHT_GRIPPER_POSE_TERM=1000,
     max_qp_iters=10000,
     disable_collision=args.disablecol,
     velocity_collision=args.vel,
+    SAFETY_THRESHOLD=0
 )
 ddp = problem()
+
+
+# ddp.solve(xs, us, 100)
 
 ddp.solve()
 
@@ -97,7 +102,7 @@ if args.save:
         name = "results_nocol"
     else:
         name = "results" + col
-    with open("results/" + name + ".json", "w") as json_file:
+    with open("results/scene"+ str(args.scene) + "/" + name + ".json", "w") as json_file:
         json.dump(data, json_file, indent=6)
 
 
