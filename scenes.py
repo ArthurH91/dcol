@@ -86,7 +86,7 @@ class Scene:
             # OBS CONSTANTS
             self.PLACEMENT_OBS = [
                 pin.SE3(pin.utils.rotate("y", np.pi / 2), np.array([0.0, 0.0, 0.9])),
-                pin.SE3(pin.utils.rotate("y", np.pi / 2), np.array([-0.0, 0.4, 0.9])),
+                pin.SE3(pin.utils.rotate("y", np.pi / 2), np.array([0.0, 0.4, 0.9])),
                 pin.SE3(
                     pin.utils.rotate("y", np.pi / 2) @ pin.utils.rotate("x", np.pi / 2),
                     np.array([-0.2, 0.2, 0.9]),
@@ -100,10 +100,10 @@ class Scene:
 
             # ELLIPS ON THE ROBOT
             self.PLACEMENT_ROB = [
-                pin.SE3(np.eye(3), np.array([0, 0, 0.0])),
-                pin.SE3(pin.utils.rotate("z", np.pi), np.array([0, 0, 0.17])),
+                pin.SE3(np.eye(3), np.array([0, 0, 0.01])),
+                pin.SE3(pin.utils.rotate("z", np.pi), np.array([0, 0, 0.18])),
             ]
-            self.DIM_ROB = [[0.09, 0.12], [0.01, 0.04]]
+            self.DIM_ROB = [[0.071, 0.14], [0.01, 0.04]]
 
             # Adding the ellipsoids
             add_capsule(
@@ -120,12 +120,12 @@ class Scene:
                 dim=self.DIM_OBS[1],
             )
 
-            add_capsule(
-                cmodel,
-                "obstacle2",
-                placement=self.PLACEMENT_OBS[2],
-                dim=self.DIM_OBS[2],
-            )
+            # add_capsule(
+            #     cmodel,
+            #     "obstacle2",
+            #     placement=self.PLACEMENT_OBS[2],
+            #     dim=self.DIM_OBS[2],
+            # )
 
             add_capsule(
                 cmodel,
@@ -186,18 +186,18 @@ class Scene:
                 )
             )
 
-            cmodel.addCollisionPair(
-                pin.CollisionPair(
-                    cmodel.getGeometryId("ellips_rob0"),
-                    cmodel.getGeometryId("obstacle2"),
-                )
-            )
-            cmodel.addCollisionPair(
-                pin.CollisionPair(
-                    cmodel.getGeometryId("ellips_rob1"),
-                    cmodel.getGeometryId("obstacle2"),
-                )
-            )
+            # cmodel.addCollisionPair(
+            #     pin.CollisionPair(
+            #         cmodel.getGeometryId("ellips_rob0"),
+            #         cmodel.getGeometryId("obstacle2"),
+            #     )
+            # )
+            # cmodel.addCollisionPair(
+            #     pin.CollisionPair(
+            #         cmodel.getGeometryId("ellips_rob1"),
+            #         cmodel.getGeometryId("obstacle2"),
+            #     )
+            # )
 
             cmodel.addCollisionPair(
                 pin.CollisionPair(
@@ -223,49 +223,67 @@ class Scene:
 
             # ELLIPS ON THE ROBOT
             self.PLACEMENT_ROB = [
-                pin.SE3(np.eye(3), np.array([0, 0, 0.0])),
-                pin.SE3(pin.utils.rotate("z", np.pi), np.array([0, 0, 0.17])),
+                pin.SE3(pin.utils.rotate("y", np.pi/4) @ pin.utils.rotate("x", np.pi/4) @  pin.utils.rotate("z", np.pi/4), np.array([0, 0, 0.17])),
             ]
-            self.DIM_ROB = [[0.1, 0.17], [0.04, 0.06, 0.04]]
+            self.DIM_ROB = [[0.05, 0.035, 0.035]]
 
             add_capsule(
                 cmodel, "obstacle", placement=self.PLACEMENT_OBS[0], dim=self.DIM_OBS[0]
             )
-            add_capsule(
+            # add_ellipsoid(
+            #     cmodel,
+            #     "ellips_rob0",
+            #     parentJoint=cmodel.geometryObjects[
+            #         cmodel.getGeometryId("panda2_leftfinger_0")
+            #     ].parentJoint,
+            #     parentFrame=cmodel.geometryObjects[
+            #         cmodel.getGeometryId("panda2_leftfinger_0")
+            #     ].parentFrame,
+            #     placement=self.PLACEMENT_ROB[0],
+            #     dim=self.DIM_ROB[0],
+            # )
+
+            cmodel.addCollisionPair(
+                pin.CollisionPair(
+                    cmodel.getGeometryId("panda2_leftfinger_0"),
+                    cmodel.getGeometryId("obstacle"),
+                )
+            )
+        elif scene == 4:
+            # OBS CONSTANTS
+            self.PLACEMENT_OBS = [
+                pin.SE3(
+                    pin.utils.rotate("y", np.pi / 2) @ pin.utils.rotate("z", np.pi / 2),
+                    np.array([0, 0.1, 1.5]),
+                )
+            ]
+            self.DIM_OBS = [[0.1, 0.2,1]]
+
+            # ELLIPS ON THE ROBOT
+            self.PLACEMENT_ROB = [
+                pin.SE3(pin.utils.rotate("y", np.pi/4) @ pin.utils.rotate("x", np.pi/4) @  pin.utils.rotate("z", np.pi/4), np.array([0, 0, 0.17])),
+            ]
+            self.DIM_ROB = [[0.05, 0.035, 0.035]]
+
+            add_ellipsoid(
+                cmodel, "obstacle", placement=self.PLACEMENT_OBS[0], dim=self.DIM_OBS[0]
+            )
+            add_ellipsoid(
                 cmodel,
                 "ellips_rob0",
                 parentJoint=cmodel.geometryObjects[
-                    cmodel.getGeometryId("panda2_link7_sc_5")
+                    cmodel.getGeometryId("panda2_leftfinger_0")
                 ].parentJoint,
                 parentFrame=cmodel.geometryObjects[
-                    cmodel.getGeometryId("panda2_link7_sc_5")
+                    cmodel.getGeometryId("panda2_leftfinger_0")
                 ].parentFrame,
                 placement=self.PLACEMENT_ROB[0],
                 dim=self.DIM_ROB[0],
             )
 
-            add_ellipsoid(
-                cmodel,
-                "ellips_rob1",
-                parentJoint=cmodel.geometryObjects[
-                    cmodel.getGeometryId("panda2_leftfinger_0")
-                ].parentJoint,
-                parentFrame=cmodel.geometryObjects[
-                    cmodel.getGeometryId("panda2_leftfinger_0")
-                ].parentFrame,
-                placement=self.PLACEMENT_ROB[1],
-                dim=self.DIM_ROB[1],
-            )
-
             cmodel.addCollisionPair(
                 pin.CollisionPair(
                     cmodel.getGeometryId("ellips_rob0"),
-                    cmodel.getGeometryId("obstacle"),
-                )
-            )
-            cmodel.addCollisionPair(
-                pin.CollisionPair(
-                    cmodel.getGeometryId("ellips_rob1"),
                     cmodel.getGeometryId("obstacle"),
                 )
             )
@@ -304,8 +322,8 @@ class Scene:
                     -9.23646871e-01,
                     6.62962572e-01,
                     5.02801754e-01,
-                    6.96128891e-01,
-                    -4.77514312e-03,
+                    1.696128891e-00,
+                    4.77514312e-01,
                 ]
             )
         elif scene == 3:
@@ -319,14 +337,35 @@ class Scene:
                 #     1.21055128e00,
                 #     -5.22323377e-03,
                 # ]
+                # [
+                #     -5.18082863e-01,
+                #     9.70047147e-01,
+                #     -9.50414541e-01,
+                #     7.10346800e-01,
+                #     4.88648039e-01,
+                #     1.23526996e00,
+                #     -5.22067097e-03
+                # ]
                 [
-                    -5.18082863e-01,
-                    9.70047147e-01,
-                    -9.50414541e-01,
-                    7.10346800e-01,
-                    4.88648039e-01,
-                    1.23526996e00,
-                    -5.22067097e-03
+                    6.87676046e-02,
+                    1.87133260e00,
+                    -9.23646871e-01,
+                    6.62962572e-01,
+                    5.02801754e-01,
+                    1.696128891e-00,
+                    4.77514312e-01,
+                ]
+            )
+        elif scene == 4:
+            return np.array(
+                [
+                    6.87676046e-02,
+                    1.87133260e00,
+                    -9.23646871e-01,
+                    6.62962572e-01,
+                    5.02801754e-01,
+                    1.696128891e-00,
+                    4.77514312e-01,
                 ]
             )
 
@@ -349,9 +388,33 @@ class Scene:
         elif scene == 2:
             return pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.2, 0.9]))
         elif scene == 3:
-            return pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.2, 1.5]))
+            return pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.0, 1.5]))
+        elif scene == 4:
+            return pin.SE3(pin.utils.rotate("x", np.pi), np.array([0, 0.0, 1.5]))
         else:
             raise ValueError("Scene not implemented")
+
+    def get_hyperparams(self, scene=1):
+
+        if scene == 1:
+            self.ksi = 1e-2
+            self.di = 5e-3
+            self.ds = 1e-7
+        if scene == 2:
+            self.ksi = 1e-2
+            self.di = 5e-3
+            self.ds = 1e-7
+        if scene == 3:
+            self.ksi = 1e-3
+            self.di = 2.5e-1
+            self.ds = 1e-7
+        if scene == 4:
+            self.ksi = 1e-3
+            self.di = 2.5e-1
+            self.ds = 1e-7
+
+
+        return self.ksi, self.di, self.ds
 
 
 def add_ellipsoid(
@@ -400,6 +463,7 @@ def add_capsule(
     parentFrame=0,
     placement=pin.SE3.Random(),
     dim=[0.2, 0.5],
+    color=np.zeros(4),
 ) -> pin.GeometryModel:
     """
     Add an ellipsoid geometry object to the given `cmodel`.

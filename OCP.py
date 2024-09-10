@@ -32,7 +32,10 @@ class OCPPandaReachingColWithMultipleCol:
         max_qp_iters=1000,
         callbacks=False,
         disable_collision = False,
-        velocity_collision = True 
+        velocity_collision = True,
+        ksi = 1,
+        di = 5e-2,
+        ds = 1e-4
     ) -> None:
         """Creating the class for optimal control problem of a panda robot reaching for a target while taking a collision between a given previously given shape of the robot and an obstacle into consideration.
 
@@ -64,6 +67,10 @@ class OCPPandaReachingColWithMultipleCol:
         self._callbacks = callbacks
         self.disable_collision = disable_collision
         self.velocity_collision = velocity_collision
+        
+        self.ksi = ksi
+        self.di = di
+        self.ds = ds
 
         # Weights
         self._WEIGHT_xREG = WEIGHT_xREG
@@ -132,7 +139,7 @@ class OCPPandaReachingColWithMultipleCol:
                 
                 if self.velocity_collision:
                     obstacleDistanceResidual = ResidualModelVelocityAvoidance(
-                    self._state, self._cmodel, col_idx
+                    self._state, self._cmodel, col_idx, self.ksi, self.di, self.ds
                 )
                 else:
                     obstacleDistanceResidual = ResidualDistanceCollision(
