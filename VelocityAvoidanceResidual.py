@@ -185,9 +185,14 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         ddistdot_dq_val = self.ddistdot_dq(self._pinocchio, self._geom_model, x)
         ddist_dq = np.r_[self.ddist_dq(self._pinocchio, self._geom_model, x), np.zeros(self._nq)]
         data.Rx[:] = ddistdot_dq_val - ddist_dq * self.ksi / (self.di - self.ds)
+        nd = numdiff(self.f, x)
+        # print(f"ddotdq: {(data.Rx - nd)[:7]}")
+        # print(f"ddotdvq: {(data.Rx - nd)[7:]}")
         
-        # nd = numdiff(self.f, x)
-        # print(np.linalg.norm(nd - data.Rx))
+        # print(f"no nd: {np.linalg.norm(ddistdot_dq_val)}")
+        # print(f"nd : {np.linalg.norm(nd)}")
+        # print(np.max(nd -ddistdot_dq_val))
+        # print("---------")
         # data.Rx[:] = nd
 
     def ddist_dq(self, rmodel, cmodel, x: np.ndarray):
@@ -263,14 +268,20 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
 
     def ddistdot_dq(self, rmodel, cmodel, x: np.ndarray):
         q = x[: rmodel.nq]
-        v = x[rmodel.nq :]
-
+        v = x[rmodel.nq :] 
+        
+        # print(f"not numdiff")
+        # print(f"q: {q}")
+        # print(f"v: {v}")
+        # print("---------")
+        
         # Creating the data models
         rdata = rmodel.createData()
         cdata = cmodel.createData()
 
         # Updating the position of the joints & the geometry objects.
         pin.forwardKinematics(rmodel, rdata, q, v)
+        pin.computeForwardKinematicsDerivatives(rmodel, rdata, q, v, np.zeros(rmodel.nq))
         pin.updateGeometryPlacements(rmodel, rdata, cmodel, cdata)
 
         # Poses and geometries of the shapes
@@ -373,14 +384,17 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
             ]
             + np.r_[
                 np.zeros([6, 12]),
-                np.c_[pin.skew(x1 - x2), np.zeros([3, 9])],
-                np.c_[np.zeros([3, 3]), -pin.skew(x1 - x2), np.zeros([3, 6])],
+                np.c_[pin.skew(x1 - x2), np.zeros([3, 9])], ###! Changed from np.c_[pin.skew(x1 - x2)
+                np.c_[np.zeros([3, 3]), - pin.skew(x1 - x2), np.zeros([3, 6])], ###!  - pin.skew(x1 - x2)
             ]
         )
 
         d_dist_dot_dtheta = theta_dot.T @ ddL_dtheta2 / distance - dist_dot / distance**2 * dL_dtheta
 
-        d_dist_dot_dtheta_dot = dL_dtheta / distance
+        # d_dist_dot_dtheta_dot = dL_dtheta / distance
+        
+        d_dist_dot_dtheta_dot = theta_dot.T @ ddL_dtheta2 / distance 
+        
         d_theta1_dq = pin.computeFrameJacobian(rmodel, rdata,q, self._shape1.parentFrame, pin.LOCAL_WORLD_ALIGNED)
         d_theta2_dq = pin.computeFrameJacobian(rmodel, rdata,q, self._shape2.parentFrame, pin.LOCAL_WORLD_ALIGNED)
         
@@ -392,18 +406,26 @@ class ResidualModelVelocityAvoidance(crocoddyl.ResidualModelAbstract):
         
         d_theta_dq = np.r_[d_c1_dq, d_c2_dq, d_r1_dq, d_r2_dq]
         
-        d_theta_dot_dq = pin.computeJointJacobiansTimeVariation(rmodel, rdata, q, v)
-        d_v1_dq = d_theta_dot_dq[:3,:]
-        d_w1_dq = d_theta_dot_dq[3:,:]
+        d_theta1_dot_dq = pin.getFrameVelocityDerivatives(rmodel, rdata, frame_id=self._shape1.parentFrame, reference_frame=pin.WORLD)[0]
+        d_theta2_dot_dq = pin.getFrameVelocityDerivatives(rmodel, rdata, frame_id=self._shape2.parentFrame, reference_frame=pin.WORLD)[0]
+
+
+        d_v1_dq = d_theta1_dot_dq[:3,:]
+        d_w1_dq = d_theta1_dot_dq[3:,:]
         
-        d_v2_dq = np.zeros((3, rmodel.nq))
-        d_w2_dq = np.zeros((3, rmodel.nq))
+        d_v2_dq = d_theta2_dot_dq[:3,:]
+        d_w2_dq = d_theta2_dot_dq[:3,:]
         
-        dJ = np.r_[d_v1_dq, d_v2_dq, d_w1_dq, d_w2_dq]
-        d_dist_dot_dq = d_dist_dot_dtheta @ d_theta_dq + d_dist_dot_dtheta_dot @ dJ
-        return np.r_[d_dist_dot_dq, d_dist_dot_dtheta_dot @ d_theta_dq]
+        d_theta_dot_dq = np.r_[d_v1_dq, d_v2_dq, d_w1_dq, d_w2_dq]        
+        d_dist_dot_dq = d_dist_dot_dtheta @ d_theta_dq + d_dist_dot_dtheta_dot @ d_theta_dot_dq
+        return np.r_[d_dist_dot_dq, self.ddist_dq(rmodel, cmodel, x)]
 
 def numdiff(f, q, h=1e-6):
+    # print(f"numdiff")
+    # print(f"q: {q[:7]}")
+    # print(f"v: {q[7:]}")
+    # print("---------")
+        
     j_diff = np.zeros(len(q))
     fx = f(q)
     for i in range(len(q)):
