@@ -6,6 +6,7 @@ import mim_solvers
 from numpy import r_, c_, eye
 from wrapper_panda import PandaWrapper
 from viewer import create_viewer, add_sphere_to_viewer, add_cube_to_viewer
+np.set_printoptions(precision=4, linewidth=350, suppress=True,threshold=1e6)
 
 # from VelocityResidual import ResidualModelVelocityAvoidance
 from VR import ResidualModelVelocityAvoidance
