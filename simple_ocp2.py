@@ -16,11 +16,6 @@ with open("config_scenes.yaml", "r") as file:
 # Access the 'scene' data
 scene = config["scene2"]
 
-TARGET_POSE = pin.SE3(
-    pin.utils.rotate(scene["TARGET_POSE"]["rotation"], scene["TARGET_POSE"]["angle"]),
-    np.array(scene["TARGET_POSE"]["position"]),
-)
-
 
 #### Creating the robot
 robot_wrapper = PandaWrapper()
@@ -126,7 +121,7 @@ ocp_dist.solve(XS_init,US_init, 100)
 
 #### Creating the visualizer
 viz = create_viewer(rmodel, gmodel, vmodel)
-add_sphere_to_viewer(viz, "goal", 5e-2, TARGET_POSE.translation, color=100000)
+add_sphere_to_viewer(viz, "goal", 5e-2,  np.array(scene["TARGET_POSE"]["translation"]), color=100000)
 
 #### Displaying the trajectories
 
