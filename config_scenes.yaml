@@ -35,8 +35,8 @@ scene1:
       - 1.2
 
   # Control parameters
-  ksi: 0.1
-  di: 0.1
+  ksi: 0.01
+  di: 0.01
   ds: 0.0000001
 
   # Weights
@@ -50,16 +50,9 @@ scene1:
   SAFETY_THRESHOLD: 0
 
   DIM_OBS:
-    radii1:  
-    - 0.1 
-    - 0.2 
-    - 0.1 
-    
+  - [0.1, 0.2, 0.1]
   DIM_ROB:
-    radii1: 
-    - 0.04
-    - 0.04
-    - 0.04  
+  - [0.04, 0.04, 0.04]
 
   collision_pairs:
     - [el1, el2]
