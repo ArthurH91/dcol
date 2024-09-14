@@ -7,7 +7,7 @@ from viewer import create_viewer, add_sphere_to_viewer, add_cube_to_viewer
 np.set_printoptions(precision=4, linewidth=350, suppress=True,threshold=1e6)
 
 import yaml
-from create_ocp import create_ocp_velocity, create_ocp_distance
+from create_ocp import create_ocp_velocity, create_ocp_distance, create_ocp_nocol
 
 # Load variables from the YAML file
 with open("config_scenes.yaml", "r") as file:
@@ -70,6 +70,10 @@ ocp_vel.solve(XS_init, US_init, 100)
 ocp_dist = create_ocp_distance(rmodel, gmodel, scene)
 ocp_dist.solve(XS_init,US_init, 100)
 
+### Creating the OCP for the no collision
+ocp_nocol = create_ocp_nocol(rmodel, gmodel, scene)
+ocp_nocol.solve(XS_init, US_init, 100)
+
 #### Creating the visualizer
 viz = create_viewer(rmodel, gmodel, vmodel)
 add_sphere_to_viewer(viz, "goal", 5e-2,  np.array(scene["TARGET_POSE"]["translation"]), color=100000)
@@ -98,9 +102,13 @@ for i, xs in enumerate(ocp_dist.xs):
             color=100000,
         )
 
+from save_results import save_results
+save_results(ocp_dist, ocp_vel, ocp_nocol, scene_nb=3)
+        
+
 #### Displaying the solution
 while True:
-    for i, xs in enumerate(ocp_dist.xs):
+    for i, xs in enumerate(ocp_vel.xs):
         q = np.array(xs[:7].tolist())
         pin.framesForwardKinematics(rmodel, rdata, q)
         viz.display(np.array(xs[:7].tolist()))
