@@ -112,13 +112,5 @@ for i, xs in enumerate(ocp_dist.xs):
 while True:
     for i, xs in enumerate(ocp_vel.xs):
         q = np.array(xs[:7].tolist())
-        pin.framesForwardKinematics(rmodel, rdata, q)
-        add_cube_to_viewer(
-            viz,
-            "vcolmpc" + str(i),
-            [2e-2, 2e-2, 2e-2],
-            rdata.oMf[rmodel.getFrameId("panda2_rightfinger")].translation,
-            color=100000000,
-        )
         viz.display(np.array(xs[:7].tolist()))
         input()
