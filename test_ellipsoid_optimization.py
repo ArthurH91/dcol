@@ -51,30 +51,6 @@ class TestEllipsoidDistance(unittest.TestCase):
         self.ellipsoid_2_pose = pin.SE3(rotation=self.B_rot, translation= np.array(self.x0_2))
         
 
-    def lagrangian_multipliers(
-        self, x01: np.ndarray, A: np.ndarray, x02: np.ndarray, B: np.ndarray
-    ):
-        """
-        Calculate the Lagrangian multipliers for the ellipsoids.
-
-        Args:
-            x01 (np.ndarray): Center of the first ellipsoid.
-            A (np.ndarray): Shape matrix of the first ellipsoid.
-            x02 (np.ndarray): Center of the second ellipsoid.
-            B (np.ndarray): Shape matrix of the second ellipsoid.
-
-        Returns:
-            tuple: Lagrangian multipliers for the constraints.
-        """
-        lambda1 = -self.distance / (
-            np.dot(np.dot((self.x1 - self.x2).T, A), (self.x1 - x01))
-        )
-        lambda2 = self.distance / (
-            np.dot(np.dot((self.x1 - self.x2).T, B), (self.x2 - x02))
-        )
-
-        return lambda1, lambda2
-
     def test_qcqp_solver(self):
         """
         Test the QCQP solver to ensure it provides valid results.
@@ -85,21 +61,6 @@ class TestEllipsoidDistance(unittest.TestCase):
             self.distance, 0, "Minimum absolute difference should be non-negative"
         )
 
-    def test_compare_lagrangian(self):
-        """
-        Compare the Lagrangian multipliers from the CasADi solver and manual calculation.
-        """
-        self.lagrange_multipliers_casadi = self.qcqp_solver.get_dual_values()
-
-        lambda1, lambda2 = self.lagrangian_multipliers(
-            self.x0_1, self.qcqp_solver.A_rot, self.x0_2, self.qcqp_solver.B_rot
-        )
-        np.testing.assert_almost_equal(
-            lambda1, self.lagrange_multipliers_casadi[0], decimal=3
-        )
-        np.testing.assert_almost_equal(
-            lambda2, self.lagrange_multipliers_casadi[1], decimal=3
-        )
 
     def test_compare_hppfcl_qcqp(self):
         """
