@@ -172,7 +172,7 @@ def create_ocp_distance(rmodel, gmodel, scene):
         constraint = crocoddyl.ConstraintModelResidual(
             state,
             obstacleVelocityResidual,
-            np.array([0]),
+            np.array([scene["SAFETY_THRESHOLD"]]),
             np.array([np.inf]),
         )
 
@@ -217,12 +217,12 @@ def create_ocp_distance(rmodel, gmodel, scene):
         terminal_DAM, 0.0
     )
 
-    runningModel.differential.armature = np.array(
-        [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0]
-    )
-    terminalModel.differential.armature = np.array(
-        [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0]
-    )
+    # runningModel.differential.armature = np.array(
+    #     [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0]
+    # )
+    # terminalModel.differential.armature = np.array(
+    #     [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0]
+    # )
 
     problem = crocoddyl.ShootingProblem(
         np.r_[scene['INITIAL_CONFIG'], scene['INITIAL_VELOCITY']], [runningModel] * scene["T"], terminalModel
