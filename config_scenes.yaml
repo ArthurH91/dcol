@@ -1,0 +1,65 @@
+scene1:
+  # Number of nodes of the trajectory
+  T: 20
+
+  # Time step between each node
+  dt: 0.1
+
+  # Initial configuration
+  INITIAL_CONFIG: 
+    - -0.06709294
+    - 1.35980773
+    - -0.81605989
+    - 0.74243348
+    - 0.42419277
+    - 0.45547585
+    - -0.00456262
+
+  # Initial velocity
+  INITIAL_VELOCITY: 
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+
+  # Target pose
+  TARGET_POSE:
+    rotation: "x"
+    angle: 3.14159265359
+    position: 
+      - 0
+      - 0.5
+      - 1.2
+
+  # Control parameters
+  ksi: 0.1
+  di: 0.1
+  ds: 0.0000001
+
+  # Weights
+  WEIGHT_uREG: 0.0001
+  WEIGHT_xREG: 0.1
+  WEIGHT_GRIPPER_POSE: 5
+  WEIGHT_GRIPPER_POSE_TERM: 100
+  WEIGHT_LIMIT: 0.1
+
+  # Safety threshold
+  SAFETY_THRESHOLD: 0
+
+  DIM_OBS:
+    radii1:  
+    - 0.1 
+    - 0.2 
+    - 0.1 
+    
+  DIM_ROB:
+    radii1: 
+    - 0.04
+    - 0.04
+    - 0.04  
+
+  collision_pairs:
+    - [el1, el2]
